@@ -1,0 +1,34 @@
+{
+  "name": "像素远征：任务养成",
+  "id": "sp-gamification",
+  "manifestVersion": 1,
+  "version": "0.2.0",
+  "minSupVersion": "18.21.2",
+  "description": "把任务和专注变成像素冒险、Boss 战、等级、金币与桌宠反馈。",
+  "author": "SCSldr",
+  "hooks": [
+    "taskComplete",
+    "taskUpdate",
+    "taskCreated",
+    "currentTaskChange",
+    "finishDay",
+    "persistedDataChanged",
+    "languageChange"
+  ],
+  "permissions": [
+    "getTasks",
+    "persistDataSynced",
+    "loadSyncedData",
+    "showIndexHtmlAsView",
+    "showSnack",
+    "notify",
+    "http"
+  ],
+  "allowedHosts": ["sppet.scsldr.cn"],
+  "i18n": { "languages": ["en", "zh"] },
+  "iFrame": true,
+  "sidePanel": true,
+  "type": "standard",
+  "assets": [],
+  "icon": "icon.svg"
+}

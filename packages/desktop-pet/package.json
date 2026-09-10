@@ -1,0 +1,19 @@
+{
+  "name": "@sp-gamification/desktop-pet",
+  "version": "0.2.0",
+  "private": true,
+  "description": "独立读取 Super Productivity 奖励状态的透明桌宠悬浮窗",
+  "author": "SCSldr",
+  "main": "src/main.cjs",
+  "scripts": {
+    "dev": "electron .",
+    "start": "electron .",
+    "build": "node --check src/main.cjs && node --check src/preload.cjs && node --check src/renderer.js",
+    "package:win": "pnpm run build && node scripts/package.mjs"
+  },
+  "devDependencies": {
+    "@electron/packager": "^18.3.6",
+    "archiver": "^7.0.1",
+    "electron": "^38.1.0"
+  }
+}
