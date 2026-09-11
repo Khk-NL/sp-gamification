@@ -23,17 +23,18 @@ const PluginAPI = {
   loadSyncedData: async (key) => persisted.get(key) ?? null,
   persistDataSynced: async (data, key) => persisted.set(key, data),
   getTasks: async () => [{ id: 'existing', title: 'Existing', timeSpent: 0, isDone: false }],
-  showSnack: () => {}, notify: async () => {}, request: async () => ({ entries: [] }),
+  showSnack: () => {}, notify: async () => {}, request: async () => ({ entries: [] }), downloadFile: async () => {},
   onReady: (handler) => { readyHandler = handler; }, onMessage: (handler) => { messageHandler = handler; }, onUnload: () => {},
 };
 
 const source = await readFile(pluginPath, 'utf8');
 vm.runInNewContext(source, { PluginAPI, WebSocket: MockWebSocket, console, crypto: globalThis.crypto, setTimeout, clearTimeout });
 assert.equal(typeof readyHandler, 'function'); assert.equal(typeof messageHandler, 'function'); await readyHandler();
-const completed = { taskId: 'task-1', task: { id: 'task-1', title: 'Smoke task #hard', resolvedTagNames: ['hard'], timeSpent: 0, isDone: true, doneOn: Date.now() } };
-await hooks.get('taskComplete')(completed); await hooks.get('taskComplete')(completed);
-await hooks.get('taskUpdate')({ taskId: 'existing', task: { id: 'existing', title: 'Existing', timeSpent: 25 * 60_000, isDone: false }, changes: { timeSpent: 25 * 60_000 } });
+const completed = (id) => ({ taskId: id, task: { id, title: 'Smoke task', timeSpent: 0, isDone: true, doneOn: Date.now() } });
+await hooks.get('taskComplete')(completed('task-1')); await hooks.get('taskComplete')(completed('task-1')); await hooks.get('taskComplete')(completed('task-2')); await hooks.get('taskComplete')(completed('task-3'));
+await hooks.get('taskUpdate')({ taskId: 'existing', task: { id: 'existing', title: 'Existing', timeSpent: 50 * 60_000, isDone: false }, changes: { timeSpent: 50 * 60_000 } });
 const response = await messageHandler({ type: 'getState' }); const state = response.state;
-assert.equal(state.totalTasksCompleted, 1); assert.equal(state.coins, 5); assert.equal(state.totalFocusMinutes, 25); assert.equal(state.xp, 15); assert.equal(state.adventure.boss.hp, 60);
-assert.equal(JSON.parse(persisted.get('gamification-state-v1')).version, 2);
+assert.equal(state.totalTasksCompleted, 3); assert.equal(state.coins, 0); assert.equal(state.totalFocusMinutes, 50); assert.equal(state.xp, 70); assert.equal(state.adventure.activeBattle, null);
+const battle = await messageHandler({ type: 'startBattle' }); assert.equal(battle.state.adventure.activeBattle.phase, 'story_before');
+assert.equal(JSON.parse(persisted.get('gamification-state-v1')).version, 3);
 console.log('SP plugin smoke test passed');

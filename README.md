@@ -1,37 +1,46 @@
-# 像素远征：Super Productivity 任务养成 + 独立桌宠
+# SPPet
 
-不修改 Super Productivity Core。SP 插件通过官方 hooks 把任务与专注记录交给独立 `core`，再用 localhost WebSocket 与 Electron 桌宠实时通信。桌宠同时把状态落盘为 JSON，重启后可以恢复。
+SPPet 是一个由 Super Productivity 驱动的学习养成与桌宠系统。它不修改 SP Core，通过官方 Plugin API 读取任务和专注变化，再把委托、成长、回合制冒险和桌宠状态交给独立游戏引擎处理。
 
-## 目录结构与职责
+界面采用原创的黑白工业终端、斜切卡片、黄色/青色信号色设计；只参考同类战术终端的信息层级，不包含《明日方舟》官方角色、Logo、字体或美术资源。
+
+## 项目结构
 
 ```text
-sp-gamification/
+sppet/
 ├─ packages/
-│  ├─ core/          # 奖励、等级、streak、Boss、委托、商店；无 SP/Electron 依赖
-│  ├─ sp-plugin/     # SP hooks、同步存储、像素面板、设置、排行榜客户端
-│  └─ desktop-pet/   # 透明置顶桌宠、本地桥接、JSON 落盘、自定义皮肤
+│  ├─ core/
+│  │  └─ src/
+│  │     ├─ types.ts      # 状态、战斗、道具和内容结构
+│  │     ├─ catalog.ts    # 内置技能、装备、敌人和章节
+│  │     ├─ engine.ts     # 委托、签到、养成与回合制规则
+│  │     └─ index.ts      # 公共导出
+│  ├─ sp-plugin/
+│  │  ├─ src/             # SP hooks、存储、桌宠桥接、网站连接
+│  │  └─ static/          # 独立 HTML / CSS / JS 面板
+│  └─ desktop-pet/        # Electron 透明桌宠与 localhost 服务
+├─ CHANGELOG.md
 └─ README.md
 ```
 
-## 修改插件在 SP 中显示的名称
+网站、Nginx 和管理端部署文件单独交付，不进入此仓库。
 
-修改 `packages/sp-plugin/static/manifest.json` 的 `name`。为了让不同语言下也一致，再同步修改：
-
-- `packages/sp-plugin/static/i18n/zh.json` 的 `PLUGIN.NAME`
-- `packages/sp-plugin/static/i18n/en.json` 的 `PLUGIN.NAME`
-
-然后重新执行 `pnpm package:plugin`，在 SP 中卸载/更新旧插件并导入新 ZIP。不要修改 `id: "sp-gamification"`，否则 SP 会把它当成另一个插件，旧成长数据也不会自动关联。
-
-## 构建与安装 SP 插件
+## 安装插件
 
 ```powershell
 pnpm install
 pnpm package:plugin
 ```
 
-生成 `packages/sp-plugin/release/sp-gamification-v0.2.0.zip`。在 Super Productivity 中进入“设置 → 插件 → 选择插件文件”，导入 ZIP 并启用。最低支持 SP 18.21.2。
+生成：
 
-新版不再依赖上传插件不可用的 `nodeExecution`。桌宠启动后监听 `ws://127.0.0.1:47821`；插件面板的“桌宠连接”会明确显示连接结果。
+```text
+packages\sp-plugin\release\SPPet-SP-v0.3.0.zip
+```
+
+在 Super Productivity“设置 → 插件 → 选择插件文件”中导入。最低支持 SP 18.21.2。
+
+插件内部仍使用旧 ID `sp-gamification` 和旧状态键，这是升级兼容措施，不是当前产品名称。修改它们会让 SP 将插件识别成全新插件，并失去对旧同步状态的直接访问。
 
 ## 启动桌宠
 
@@ -41,57 +50,76 @@ pnpm package:plugin
 pnpm dev:pet
 ```
 
-打包便携版：
+便携版：
 
 ```powershell
 pnpm package:pet
 ```
 
-解压 `packages/desktop-pet/release/sp-gamification-pet-v0.2.0-win-x64.zip`，运行 `SP Gamification Pet.exe`。窗口支持拖动、隐藏、托盘恢复、退出与始终置顶。皮肤导入格式见 `packages/desktop-pet/CUSTOM_SKINS.md`。
+解压 `SPPet-v0.3.0-win-x64.zip`，运行 `SPPet.exe`。桌宠默认只显示角色：
 
-## 数据与通信
+- 悬停：显示 Lv、XP、状态值、streak、金币。
+- 左键：播放用户设置的互动台词。
+- 长时间未互动：间歇播放闲置台词。
+- 右键：显示菜单，再进入连接、皮肤、大小和置顶设置。
+- 顶部半透明小点区域：拖动桌宠。
 
-长期主状态保存在 SP 插件同步存储。桌宠收到实时消息后，原子写入：
+自定义皮肤格式见 `packages/desktop-pet/CUSTOM_SKINS.md`。
+
+## 游戏规则
+
+- SP 任务和专注只推进每日委托；完成委托获得经验。
+- 签到、升级和战斗获得金币；连续签到奖励逐日提高，7 天封顶。
+- 升级提高最大 HP、攻击和防御。
+- 桌宠每连续断连一段可配置时间会降低状态值；食物可以恢复 HP/状态或提供下一场战斗 Buff。
+- 冒险采用回合制。资源点从 1 开始，每回合回满且上限 +1，最高 5，战斗后重置。
+- 技能包含物理、火、水、冰、电伤害，并可提供护盾、治疗、灼烧和削弱。
+- 武器、护甲、饰品提供属性与元素加成；同套装备可触发额外效果。
+- 每章有普通敌人和小 Boss，敌方下一行动以“意图”显示。
+- 每场战斗包含可跳过的战前/战后剧情；战后奖励只结算一次，剧情结束才推进关卡。
+
+## 插件导航
+
+底栏固定为四项：
+
+1. 概览：等级、委托、签到和汇总状态。
+2. 养成：宠物属性、抗性、装备、商店、食物和宠物台词。
+3. 冒险：剧情、敌人意图、技能与回合制战斗。
+4. 设置：语言、提醒、委托数值、断连衰减、连接测试、导入导出和网站链接。
+
+排行榜不在插件中渲染；同步默认关闭，用户可在设置中主动启用，再通过超链接打开网站。
+
+## 本地通信和数据
 
 ```text
-%APPDATA%\sp-gamification\state.json
-%APPDATA%\sp-gamification\events.json
-%APPDATA%\sp-gamification\pet-cursor.json
-%APPDATA%\sp-gamification\pet-settings.json
+SP Plugin → ws://127.0.0.1:47821 → SPPet → JSON
 ```
 
-- 插件 → `ws://127.0.0.1:47821` → 桌宠，是当前实时通道。
-- 桌宠保存最近 100 个事件和消费游标，重启不会重新播放旧奖励。
-- `processedTaskIds` 防止同一任务完成事件重复结算；按任务保存已观察专注分钟数，防止专注重复结算。
+数据位置：
 
-## 当前已实现
+```text
+%APPDATA%\SPPet\state.json
+%APPDATA%\SPPet\events.json
+%APPDATA%\SPPet\pet-cursor.json
+%APPDATA%\SPPet\pet-settings.json
+%APPDATA%\SPPet\pet-profile.json
+```
 
-- 任务 XP/金币、自定义奖励数值、等级、自然日 streak、今日/总任务数。
-- 按累计专注分钟结算，避免重复奖励。
-- 三个原创冒险区域、Boss 血量与推进；普通任务 10 伤害，`#deep-work` 15，`#hard` 20，标题 `[dmg:N]` 可指定伤害。
-- 每日“完成 3 个任务”和“专注 50 分钟”委托及金币奖励。
-- 三件饰品的购买、背包与装备，装备同步显示到插件角色和桌宠。
-- 高饱和原创 2D 像素冒险面板：冒险、委托、商店、排行榜、设置五页。
-- 中英文切换、系统奖励提醒、奖励参数、排行榜开关与昵称设置。
-- Electron 透明置顶桌宠、事件动作、多类气泡反馈、自定义 `pet.json + spritesheet` 皮肤。
-- 排行榜客户端仅上传昵称和汇总统计，不上传任务标题；默认关闭。
+首次启动会从旧 `%APPDATA%\sp-gamification` 复制尚未存在的兼容文件。任务 ID、专注累计值和桌宠事件游标继续防止重复奖励/重复播报。
 
-## 当前未实现
+## 网站部署
 
-- 账号登录、排行榜防作弊、好友关系和云同步。
-- 自定义剧情编辑器、SP 项目模板生成、复杂周期习惯与 streak 宽限机制。
-- 多套地图资源、技能树、装备属性、抽卡、Season、成就、Live2D 与 AI 对话。
-- 桌宠开机自启、安装器和多显示器吸附。
+部署包位于交付目录 `deploy\website`，包括：
 
-## 后续最值得做的 5 项
+- `/`：公开排行榜。
+- `/tools.html`：状态 JSON 本地导入/导出、战前/战后剧情编辑。
+- `/developer.html`：道具、技能、怪物、抗性、行动意图和奖励数值编辑。
+- `server.mjs`：无第三方依赖的 Node 服务。
+- `nginx-sppet.conf` / `nginx-location-snippet.conf`：反向代理配置。
 
-1. 给排行榜加登录签名与服务端限流，避免任意伪造成绩。
-2. 增加状态导出、导入与 schema 迁移备份。
-3. 增加可视化剧情/章节编辑器，并保持故事数据仍归 `core`。
-4. 完善桌宠动作映射，让待机、专注、升级、受击分别使用精灵表的不同行。
-5. 做 Windows 安装包、开机启动和版本更新提示。
+服务器必须通过环境变量设置 `SPPET_ADMIN_KEY`，管理页面才能发布内容。插件从 `https://sppet.scsldr.cn/api/content` 获取内容，离线时继续使用内置目录。
 
-## 集中验证
+## 验证
 
 ```powershell
 pnpm test
@@ -99,4 +127,4 @@ pnpm build
 pnpm package:all
 ```
 
-真实验收建议只走一次核心路径：启动桌宠 → 导入插件 → 面板确认“已连接” → 模拟完成任务 → 查看 Boss 扣血、JSON 更新和桌宠气泡。
+完整版本变化见 [CHANGELOG.md](CHANGELOG.md)。

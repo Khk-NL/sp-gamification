@@ -1,8 +1,8 @@
 {
-  "name": "@sp-gamification/desktop-pet",
-  "version": "0.2.0",
+  "name": "@sppet/desktop-pet",
+  "version": "0.3.0",
   "private": true,
-  "description": "独立读取 Super Productivity 奖励状态的透明桌宠悬浮窗",
+  "description": "SPPet 透明桌宠悬浮窗与本地桥接",
   "author": "SCSldr",
   "main": "src/main.cjs",
   "scripts": {

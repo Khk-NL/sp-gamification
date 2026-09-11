@@ -1,10 +1,10 @@
 {
-  "name": "像素远征：任务养成",
+  "name": "SPPet：学习与冒险",
   "id": "sp-gamification",
   "manifestVersion": 1,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "minSupVersion": "18.21.2",
-  "description": "把任务和专注变成像素冒险、Boss 战、等级、金币与桌宠反馈。",
+  "description": "把任务与专注转化为委托、养成、回合制战斗和桌宠反馈。",
   "author": "SCSldr",
   "hooks": [
     "taskComplete",

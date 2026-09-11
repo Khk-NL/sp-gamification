@@ -1,6 +1,6 @@
 {
-  "name": "@sp-gamification/sp-plugin",
-  "version": "0.2.0",
+  "name": "@sppet/sp-plugin",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,7 +9,7 @@
     "package": "pnpm run build && node scripts/package.mjs"
   },
   "dependencies": {
-    "@sp-gamification/core": "workspace:*"
+    "@sppet/core": "workspace:*"
   },
   "devDependencies": {
     "archiver": "^7.0.1",

@@ -1,9 +1,6 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>像素远征桌宠</title><link rel="stylesheet" href="styles.css"></head>
-<body><main class="shell">
-  <header class="titlebar"><span><i id="dot"></i> 像素远征</span><nav><button id="settings" title="设置">⚙</button><button id="hide" title="隐藏">—</button><button id="close" title="退出">×</button></nav></header>
-  <div id="bubble" class="bubble">请先打开 Super Productivity 插件。</div>
-  <section class="stage"><div class="spark s1">✦</div><div class="spark s2">✦</div><div id="pet" class="pet happy" aria-label="桌宠"><div class="antenna"></div><div class="ear l"></div><div class="ear r"></div><div class="face"><i class="eye l"></i><i class="eye r"></i><i class="mouth"></i><i id="accessory" class="accessory"></i></div></div><div id="custom-sprite" class="custom-sprite"></div><div class="shadow"></div></section>
-  <section class="stats"><strong id="level">Lv.1</strong><span id="xp">XP 0 / 125</span><span id="streak">🔥 0 天</span><span id="coins">🪙 0</span></section>
-  <p id="connection">等待 localhost:47821</p>
-  <aside id="drawer" class="drawer"><h2>桌宠设置</h2><button id="skin">导入 pet.json 皮肤</button><button id="clear-skin">恢复默认皮肤</button><label><input id="always-top" type="checkbox" checked> 始终置顶</label><small>兼容 Codex Pet 的 pet.json + spritesheet.webp；内置角色与第三方皮肤互不绑定。</small></aside>
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SPPet</title><link rel="stylesheet" href="styles.css"></head><body>
+<main id="desktop" class="desktop"><div class="drag-grip" title="拖动">•••</div><div id="bubble" class="bubble"><span>等待 Super Productivity…</span></div>
+  <div id="pet-zone" class="pet-zone"><div id="pet" class="pet"><i class="ear l"></i><i class="ear r"></i><div class="head"><i class="fringe"></i><i class="eye l"></i><i class="eye r"></i><i class="mouth"></i><i id="part" class="part"></i></div><div class="body"><i></i></div></div><div id="custom-sprite" class="custom-sprite"></div><div class="shadow"></div></div>
+  <div id="context-menu" class="context-menu"><button id="open-settings">桌宠设置</button><button id="hide">隐藏</button><button id="close">退出</button></div>
+  <aside id="settings-panel" class="settings-panel"><header><div><b>SPPET</b><small>DESKTOP UNIT SETTINGS</small></div><button id="settings-close">×</button></header><section><label>连接状态</label><p id="connection" class="connection">● DISCONNECTED</p><label>皮肤</label><div class="row"><button id="skin">导入 pet.json</button><button id="clear-skin">默认</button></div><label>桌宠大小 <output id="size-label">100%</output></label><input id="size" type="range" min="65" max="160" value="100"><label class="check"><input id="always-top" type="checkbox" checked> 始终置顶</label><p id="data-dir" class="path"></p></section></aside>
 </main><script src="renderer.js"></script></body></html>

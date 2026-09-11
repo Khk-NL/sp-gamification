@@ -28,7 +28,7 @@ importers:
 
   packages/sp-plugin:
     dependencies:
-      '@sp-gamification/core':
+      '@sppet/core':
         specifier: workspace:*
         version: link:../core
     devDependencies:

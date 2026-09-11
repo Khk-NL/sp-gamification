@@ -14,7 +14,7 @@ await mkdir(release, { recursive: true });
 
 const [appDirectory] = await packager({
   dir: root,
-  name: 'SP Gamification Pet',
+  name: 'SPPet',
   platform: 'win32',
   arch: 'x64',
   electronVersion: '38.8.6',
@@ -25,7 +25,7 @@ const [appDirectory] = await packager({
   ignore: [/^\/node_modules(?:\/|$)/, /^\/release(?:\/|$)/],
 });
 
-const zipPath = path.join(release, 'sp-gamification-pet-v0.2.0-win-x64.zip');
+const zipPath = path.join(release, 'SPPet-v0.3.0-win-x64.zip');
 await new Promise((resolve, reject) => {
   const output = createWriteStream(zipPath);
   const archive = archiver('zip', { zlib: { level: 9 } });
