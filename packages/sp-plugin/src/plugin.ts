@@ -42,12 +42,13 @@ import {
   type SPPetState,
   type PlayMode,
 } from '@sppet/core';
+import { ApiClient, SITE_ORIGIN } from './api-client.js';
 
 const STATE_KEY = 'gamification-state-v1'; // Legacy key retained so v0.1/v0.2 upgrades keep their data.
 const SETTINGS_KEY = 'sppet-settings-v1';
 const CONTENT_KEY = 'sppet-content-v1';
 const PET_BRIDGE_URL = 'ws://127.0.0.1:47821';
-const SITE_ORIGIN = 'https://sppet.scsldr.cn';
+const PLUGIN_VERSION = '0.12.0';
 
 interface PluginSettings extends GameRules {
   language: 'zh' | 'en';
@@ -55,13 +56,15 @@ interface PluginSettings extends GameRules {
   leaderboardSync: boolean;
   leaderboardNickname: string;
   leaderboardDeviceId: string;
+  leaderboardUserId: string;
+  leaderboardToken: string;
   remoteContent: boolean;
   petIdleLines: string[];
   petClickLines: string[];
 }
 
 const defaultSettings = (): PluginSettings => ({
-  language: 'zh', notifications: true, leaderboardSync: false, leaderboardNickname: '无名干员', leaderboardDeviceId: crypto.randomUUID(), remoteContent: false,
+  language: 'zh', notifications: true, leaderboardSync: false, leaderboardNickname: '无名干员', leaderboardDeviceId: crypto.randomUUID(), leaderboardUserId: '', leaderboardToken: '', remoteContent: false,
   commissionTaskTarget: 3, commissionTaskXp: 30, commissionFocusTarget: 60, commissionFocusXp: 30, commissionPriorityXp: 20, commissionReviewXp: 20, dailyXpCap: 100, disconnectDecayMinutes: 60, disconnectDecayAmount: 2,
   petIdleLines: ['休息一下也没关系。', '下一项行动，准备好了吗？', '我会在这里等你。'],
   petClickLines: ['收到！', '今天也要稳步推进。', '别忘了领取签到补给。'],
@@ -77,6 +80,7 @@ let bridgeLastAck: string | null = null;
 let pendingEvents: SPPetEvent[] = [];
 let operationQueue: Promise<unknown> = Promise.resolve();
 let lastLeaderboardSubmit = 0;
+const apiClient = new ApiClient((url, options) => PluginAPI.request(url, options));
 
 interface CoreEvents {
   TASK_COMPLETED: { taskId: string; highPriority: boolean; occurredAt?: Date | string | number };
@@ -103,7 +107,7 @@ const asInt = (value: unknown, fallback: number, min: number, max: number): numb
 const lines = (value: unknown, fallback: string[]): string[] => Array.isArray(value) ? value.map(String).map((line) => line.trim()).filter(Boolean).slice(0, 20).map((line) => line.slice(0, 80)) : fallback;
 const hydrateSettings = (input: unknown): PluginSettings => {
   const fallback = defaultSettings(); if (!input || typeof input !== 'object') return fallback; const value = input as Partial<PluginSettings>;
-  return { language: value.language === 'en' ? 'en' : 'zh', notifications: value.notifications !== false, leaderboardSync: value.leaderboardSync === true, leaderboardNickname: typeof value.leaderboardNickname === 'string' && value.leaderboardNickname.trim() ? value.leaderboardNickname.trim().slice(0, 20) : fallback.leaderboardNickname, leaderboardDeviceId: typeof value.leaderboardDeviceId === 'string' && value.leaderboardDeviceId ? value.leaderboardDeviceId : fallback.leaderboardDeviceId, remoteContent: value.remoteContent === true,
+  return { language: value.language === 'en' ? 'en' : 'zh', notifications: value.notifications !== false, leaderboardSync: value.leaderboardSync === true, leaderboardNickname: typeof value.leaderboardNickname === 'string' && value.leaderboardNickname.trim() ? value.leaderboardNickname.trim().slice(0, 20) : fallback.leaderboardNickname, leaderboardDeviceId: typeof value.leaderboardDeviceId === 'string' && value.leaderboardDeviceId ? value.leaderboardDeviceId : fallback.leaderboardDeviceId, leaderboardUserId: typeof value.leaderboardUserId === 'string' ? value.leaderboardUserId : '', leaderboardToken: typeof value.leaderboardToken === 'string' ? value.leaderboardToken : '', remoteContent: value.remoteContent === true,
     commissionTaskTarget: asInt(value.commissionTaskTarget, 3, 1, 20), commissionTaskXp: asInt(value.commissionTaskXp, 30, 1, 500), commissionFocusTarget: asInt(value.commissionFocusTarget, 60, 5, 600), commissionFocusXp: asInt(value.commissionFocusXp, 30, 1, 500), commissionPriorityXp: asInt(value.commissionPriorityXp, 20, 1, 500), commissionReviewXp: asInt(value.commissionReviewXp, 20, 1, 500), dailyXpCap: asInt(value.dailyXpCap, 100, 20, 500), disconnectDecayMinutes: asInt(value.disconnectDecayMinutes, 60, 15, 1440), disconnectDecayAmount: asInt(value.disconnectDecayAmount, 2, 1, 20), petIdleLines: lines(value.petIdleLines, fallback.petIdleLines), petClickLines: lines(value.petClickLines, fallback.petClickLines) };
 };
 
@@ -132,7 +136,7 @@ const notificationText = (entry: SPPetEvent, language: 'zh' | 'en'): string | nu
   return null;
 };
 const notifyEvents = async (events: SPPetEvent[]): Promise<void> => { const cfg = await loadSettings(); if (!cfg.notifications) return; for (const entry of events) { const body = notificationText(entry, cfg.language); if (body) await PluginAPI.notify({ title: 'SPPet', body }).catch(() => undefined); } };
-const submitLeaderboard = async (snapshot: SPPetState, force = false): Promise<{ ok: boolean; error?: string }> => { const cfg = await loadSettings(); if (!cfg.leaderboardSync) return { ok: false, error: '排行榜同步未启用' }; if (!force && Date.now() - lastLeaderboardSubmit < 60_000) return { ok: true }; lastLeaderboardSubmit = Date.now(); try { await PluginAPI.request(`${SITE_ORIGIN}/api/leaderboard/submit`, { method: 'POST', timeout: 5000, body: { deviceId: cfg.leaderboardDeviceId, nickname: cfg.leaderboardNickname, level: snapshot.level, xp: snapshot.xp, streak: snapshot.streak, totalTasksCompleted: snapshot.totalTasksCompleted, totalFocusMinutes: snapshot.totalFocusMinutes, totalBattlesWon: snapshot.totalBattlesWon, updatedAt: snapshot.updatedAt } }); return { ok: true }; } catch (error) { return { ok: false, error: error instanceof Error ? error.message : String(error) }; } };
+const submitLeaderboard = async (snapshot: SPPetState, force = false): Promise<{ ok: boolean; error?: string }> => { let cfg = await loadSettings(); if (!cfg.leaderboardSync) return { ok: false, error: '排行榜同步未启用' }; if (!force && Date.now() - lastLeaderboardSubmit < 60_000) return { ok: true }; lastLeaderboardSubmit = Date.now(); try { if (!cfg.leaderboardToken) { const registered = await apiClient.registerDevice(cfg.leaderboardDeviceId, cfg.leaderboardNickname); settings = cfg = hydrateSettings({ ...cfg, leaderboardUserId: registered.userId, leaderboardToken: registered.token }); await PluginAPI.persistDataSynced(JSON.stringify(cfg), SETTINGS_KEY); } apiClient.setToken(cfg.leaderboardToken); await apiClient.updateProfile(cfg.leaderboardNickname); await apiClient.submitLeaderboard({ nonce: crypto.randomUUID(), userId: cfg.leaderboardUserId, level: snapshot.level, xp: snapshot.xp, streak: snapshot.streak, focusMinutes: snapshot.totalFocusMinutes, commissionScore: Object.values(snapshot.commissions).filter((value) => typeof value === 'object' && value && 'claimed' in value && value.claimed).length, battleScore: snapshot.totalBattlesWon, updatedAt: snapshot.updatedAt }); return { ok: true }; } catch (error) { return { ok: false, error: error instanceof Error ? error.message : String(error) }; } };
 
 const persist = async (result: EngineResult): Promise<SPPetState> => { state = result.state; await PluginAPI.persistDataSynced(JSON.stringify(state), STATE_KEY); bridgePublish(result.events); void notifyEvents(result.events); if (result.events.length) void submitLeaderboard(state); return state; };
 const runEngine = (action: (current: SPPetState, cfg: PluginSettings, gameContent: GameContent) => EngineResult): Promise<SPPetState> => queue(async () => persist(action(await loadState(), await loadSettings(), await loadContent())));
@@ -163,8 +167,11 @@ PluginAPI.registerHook(PluginAPI.Hooks.FINISH_DAY, async (payload) => { await co
 PluginAPI.registerHook(PluginAPI.Hooks.PERSISTED_DATA_CHANGED, async () => { const raw = await PluginAPI.loadSyncedData(STATE_KEY); if (!raw) return; try { const incoming = hydrateState(JSON.parse(raw), undefined, await loadSettings()); if (!state || incoming.updatedAt > state.updatedAt) { state = incoming; bridgePublish([]); } } catch { /* Keep last valid state. */ } });
 PluginAPI.registerHook(PluginAPI.Hooks.LANGUAGE_CHANGE, () => undefined);
 
-const responseState = async () => { const cfg = await loadSettings(); const gameContent = await loadContent(); const dayResult = onDayChecked(await loadState(), undefined, cfg); const connectionResult = onPetConnectionChecked(dayResult.state, bridgeStatus === 'connected', undefined, cfg); const events = [...dayResult.events, ...connectionResult.events]; if (events.length) await persist({ state: connectionResult.state, events }); else state = connectionResult.state; const snapshot = state!; return { ok: true, state: snapshot, settings: cfg, content: gameContent, computedStats: getComputedStats(snapshot, gameContent), nextLevelXp: xpRequiredForLevel(snapshot.level), battleStory: snapshot.adventure.activeBattle ? getBattleStory(snapshot, gameContent) : null, bridge: { status: bridgeStatus, url: PET_BRIDGE_URL, lastAck: bridgeLastAck, pendingEvents: pendingEvents.length }, site: { home: SITE_ORIGIN, leaderboard: `${SITE_ORIGIN}/`, tools: `${SITE_ORIGIN}/tools.html`, developer: `${SITE_ORIGIN}/developer.html` } }; };
-const refreshRemoteContent = async (): Promise<{ ok: boolean; error?: string }> => { try { const incoming = await PluginAPI.request(`${SITE_ORIGIN}/api/content`, { timeout: 5000 }); content = normalizeContent(incoming); await PluginAPI.persistDataSynced(JSON.stringify(content), CONTENT_KEY); return { ok: true }; } catch (error) { return { ok: false, error: error instanceof Error ? error.message : String(error) }; } };
+const responseState = async () => { const cfg = await loadSettings(); const { leaderboardToken: _privateToken, ...publicSettings } = cfg; const gameContent = await loadContent(); const dayResult = onDayChecked(await loadState(), undefined, cfg); const connectionResult = onPetConnectionChecked(dayResult.state, bridgeStatus === 'connected', undefined, cfg); const events = [...dayResult.events, ...connectionResult.events]; if (events.length) await persist({ state: connectionResult.state, events }); else state = connectionResult.state; const snapshot = state!; return { ok: true, state: snapshot, settings: publicSettings, content: gameContent, computedStats: getComputedStats(snapshot, gameContent), nextLevelXp: xpRequiredForLevel(snapshot.level), battleStory: snapshot.adventure.activeBattle ? getBattleStory(snapshot, gameContent) : null, bridge: { status: bridgeStatus, url: PET_BRIDGE_URL, lastAck: bridgeLastAck, pendingEvents: pendingEvents.length }, online: { leaderboardRegistered: Boolean(cfg.leaderboardToken), pluginVersion: PLUGIN_VERSION }, site: { home: SITE_ORIGIN, leaderboard: `${SITE_ORIGIN}/`, tools: `${SITE_ORIGIN}/tools.html`, developer: `${SITE_ORIGIN}/developer.html` } }; };
+const refreshRemoteContent = async (): Promise<{ ok: boolean; error?: string }> => { try { const incoming = await apiClient.content(); content = normalizeContent(incoming); await PluginAPI.persistDataSynced(JSON.stringify(content), CONTENT_KEY); return { ok: true }; } catch (error) { return { ok: false, error: error instanceof Error ? error.message : String(error) }; } };
+const versionParts = (value: string): number[] => value.split('.').map((part) => Number.parseInt(part, 10) || 0);
+const isNewerVersion = (candidate: string, current: string): boolean => { const a = versionParts(candidate), b = versionParts(current); for (let index = 0; index < Math.max(a.length, b.length); index += 1) { if ((a[index] || 0) !== (b[index] || 0)) return (a[index] || 0) > (b[index] || 0); } return false; };
+const checkUpdate = async () => { const release = await apiClient.releasesManifest(); if (!/^\d+\.\d+\.\d+$/.test(release.version) || !/^https:\/\//.test(release.downloadUrl) || !/^[a-fA-F0-9]{64}$/.test(release.sha256)) throw new Error('服务器更新清单无效'); return { ...release, currentVersion: PLUGIN_VERSION, updateAvailable: isNewerVersion(release.version, PLUGIN_VERSION), installMethod: 'Settings → Plugins → Choose Plugin File' }; };
 
 PluginAPI.onMessage?.(async (message: unknown) => {
   if (!message || typeof message !== 'object') return { ok: false, error: '消息格式无效' }; const data = message as Record<string, unknown>;
@@ -195,6 +202,7 @@ PluginAPI.onMessage?.(async (message: unknown) => {
       case 'exportState': return { ok: true, state: await loadState() };
       case 'importState': await queue(async () => persist(importState(data.state))); break;
       case 'refreshContent': { const refreshed = await refreshRemoteContent(); if (!refreshed.ok) return refreshed; break; }
+      case 'checkUpdate': return { ok: true, update: await checkUpdate() };
       case 'submitLeaderboard': { const submitted = await submitLeaderboard(await loadState(), true); if (!submitted.ok) return submitted; break; }
       case 'debugAddXp': await runEngine((current) => addDebugXp(current)); break;
       case 'debugAddCoins': await runEngine((current) => addDebugCoins(current)); break;

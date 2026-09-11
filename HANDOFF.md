@@ -2,7 +2,7 @@
 
 ## 当前阶段
 
-Phase 7 已完成，当前版本 `0.11.0`；下一阶段为 Phase 8（统一在线 API）。
+Phase 8 已完成，当前版本 `0.12.0`；下一阶段为 Phase 9（Vision、长期记忆、观察日记与 TTS）。
 
 ## 已完成
 
@@ -19,6 +19,8 @@ Phase 7 已完成，当前版本 `0.11.0`；下一阶段为 Phase 8（统一在�
 - System Awareness 将当前窗口读取和主动 Vision 拆成两项默认关闭的权限；窗口信息不自动持久化，截图不落盘。
 - 专注计时支持用户自定义窗口分类、本地偏离提醒、断线待结算、session 去重和每日 4 次奖励上限。
 - 课程表、日记、长期目标、重要日子作为四个默认关闭的本地可选模块运行，并发送课程、目标和日期事件。
+- 在线功能统一经过 `/api/v1` API Client；Catalog 有本地缓存，排行榜默认关闭并使用设备 Token、范围/增长上限和 nonce 防重放。
+- 更新检查会展示版本与日志，用户确认后下载，并在插件内校验 ZIP 的 SHA-256；SP 官方不提供插件自安装 API，因此安装仍由用户在插件设置中选择 ZIP。
 
 ## 重要文件
 
@@ -32,6 +34,8 @@ Phase 7 已完成，当前版本 `0.11.0`；下一阶段为 Phase 8（统一在�
 - `packages/desktop-pet/src/system-awareness.cjs`：授权配置与 Windows 当前窗口单次探针。
 - `packages/desktop-pet/src/focus-timer.cjs`：计时状态、用户分类规则和待确认奖励。
 - `packages/desktop-pet/src/productivity-modules.cjs`：四类可选个人计划数据、授权和提醒事件。
+- `packages/sp-plugin/src/api-client.ts`：统一在线入口、Token 和 API 路由。
+- `packages/website/server.mjs`：SQLite 登录、设备鉴权、排行榜和在线内容服务。
 - `DEVELOP_LOG.md`：阶段审计和完成记录。
 
 ## 当前数据结构
@@ -48,9 +52,9 @@ Phase 7 已完成，当前版本 `0.11.0`；下一阶段为 Phase 8（统一在�
 
 - 高优先级任务暂以 SP 标签 `high`、`high priority`、`高优先级` 或 `重要` 判断；官方 Plugin API 当前暴露的任务类型没有稳定优先级字段。
 - Event Bus 已覆盖现实行为入口；战斗/商店 UI 命令仍由插件适配层调用 core，待对应模块拆分阶段继续迁移。
-- 桌宠暂不识别其他应用窗口顶部；Spine/Live2D、多层实时换装、生产力模块、长期记忆、`/api/v1` 在线服务与更新器尚未完成。
+- 桌宠暂不识别其他应用窗口顶部；Spine/Live2D、多层实时换装、长期记忆、观察日记与 TTS 尚未完成。
 - pnpm 当前运行时版本与已有 `node_modules` 元数据不一致，会尝试重装；本阶段使用仓库现有 `node_modules/.bin` 工具验证，没有重装依赖。
 
 ## 下一阶段
 
-Phase 8 收敛在线 URL 和路径，建立统一 `/api/v1` Client、离线缓存与可选排行榜/内容服务。
+Phase 9 在保留现有主动 Vision 边界的基础上，实现长期记忆、结构化观察日记与抽象 TTS Provider。

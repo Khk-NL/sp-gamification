@@ -18,7 +18,7 @@
   </main>
   <footer><span>SPPET // UNOFFICIAL PRODUCTIVITY PROJECT</span><span>NO TASK CONTENT IS UPLOADED</span></footer>
   <script>
-    fetch('./api/leaderboard').then((response) => response.json()).then((data) => {
+    fetch('./api/v1/leaderboard?period=all').then((response) => response.json()).then((data) => {
       const root = document.querySelector('#ranking');
       const entries = data.entries || [];
       document.querySelector('#updated').textContent = `UPDATED // ${new Date(data.generatedAt).toLocaleString('zh-CN')}`;
@@ -28,9 +28,9 @@
       entries.forEach((entry, index) => {
         const row = document.createElement('div'); row.className = 'rank';
         const number = document.createElement('b'); number.textContent = `#${String(index + 1).padStart(2, '0')}`;
-        const name = document.createElement('strong'); name.textContent = entry.nickname || '无名干员';
+        const name = document.createElement('strong'); name.textContent = entry.displayName || '无名干员';
         const level = document.createElement('em'); level.textContent = `Lv.${entry.level || 1}`;
-        const meta = document.createElement('small'); meta.textContent = `BATTLE ${entry.totalBattlesWon || 0} // TASK ${entry.totalTasksCompleted || 0} // STREAK ${entry.streak || 0}`;
+        const meta = document.createElement('small'); meta.textContent = `BATTLE ${entry.battleScore || 0} // FOCUS ${entry.focusMinutes || 0} // COMMISSION ${entry.commissionScore || 0} // STREAK ${entry.streak || 0}`;
         row.append(number, name, level, meta); root.append(row);
       });
     }).catch(() => { document.querySelector('#ranking').textContent = '数据节点暂时离线'; document.querySelector('#updated').textContent = 'OFFLINE'; });

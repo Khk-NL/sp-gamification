@@ -36,12 +36,16 @@ node server.mjs
 - `/tools.html`：状态 JSON 本地导入/导出、战前/战后剧情编辑。
 - `/developer.html`：道具、技能、敌人、Buff / Debuff、行动意图与奖励数值编辑。
 
-剧情和数值保存需要管理员会话。插件读取 `/api/content` 不需要登录；排行榜同步仍默认关闭。
+剧情和数值保存需要管理员会话。插件统一读取 `/api/v1/`；排行榜同步仍默认关闭，启用后使用随机设备 Token，服务端只保存 Token 的 SHA-256。
+
+部署新插件版本时，把 ZIP 放到 `/opt/sppet/downloads/`，并同步修改 `release-manifest.json` 中的版本、日志、下载地址和 SHA-256。插件会先显示更新内容，下载后由用户选择 ZIP 完成本地校验；Super Productivity 官方只支持在“设置 → 插件 → 选择插件文件”中安装 ZIP，因此不会静默执行远程代码。
 
 ## 数据
 
-- `data/sppet.db`：SQLite 用户与会话。
+- `data/sppet.db`：SQLite 用户、会话、设备 Token 摘要和排行榜提交。
 - `data/leaderboard.json`：排行榜。
 - `data/content.json`：发布后的内容；不存在时使用 `default-content.json`。
+- `release-manifest.json`：插件更新清单。
+- `online-events.json`：活动公告目录。
 
 `data/` 已加入 `.gitignore`，不会把本地账号、会话或榜单提交到 GitHub。

@@ -217,3 +217,23 @@
 ### 下一阶段
 
 - Phase 8：统一 `/api/v1` API Client、服务器 Catalog 缓存、排行榜和在线内容接口。
+
+## Phase 8：统一在线服务（2026-09-12，v0.12.0）
+
+### 已完成
+
+- 新增统一 `ApiClient`，所有线上地址集中在一个模块，覆盖 status、config、profile、排行榜、Catalog、release 和 events。
+- 排行榜默认关闭；用户主动开启后注册随机设备 Token，服务端只保存摘要，并拒绝越界数值、异常累计增长、倒退累计值和重复 nonce。
+- 排行榜提供 daily、weekly、all 三种视图，只接收公开昵称、等级、XP、streak、专注分钟、委托分和战斗分，不上传任务、日记、对话或屏幕内容。
+- 在线商店、物品、装备、技能、剧情和活动采用独立 Catalog；玩家存档不进入 Catalog，插件只在请求成功后替换本地缓存。
+- 更新清单提供 version、downloadUrl、changelog、sha256 和 minCompatibleVersion；插件展示日志、征求下载确认并在本地校验 ZIP，失败时保持当前版本运行。
+- 依据 SP 官方限制，ZIP 安装仍由用户在“设置 → 插件 → 选择插件文件”完成；没有申请可执行任意本机代码的 `nodeExecution` 权限。
+
+### 验证
+
+- 网站测试覆盖设备注册、Bearer Token、排行榜提交、防重放、日榜、隐私字段、Catalog、release 和 events。
+- 插件构建、TypeScript 检查和 SP iframe smoke test 通过；内嵌 CSS/JS、三项底栏和核心任务/专注/战斗路径保持有效。
+
+### 下一阶段
+
+- Phase 9：长期记忆、观察日记、TTS Provider，并复核现有主动 Vision 的阶段完整性。

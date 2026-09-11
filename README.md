@@ -36,7 +36,7 @@ pnpm package:plugin
 生成：
 
 ```text
-packages\sp-plugin\release\SPPet-SP-v0.11.0.zip
+packages\sp-plugin\release\SPPet-SP-v0.12.0.zip
 ```
 
 在 Super Productivity“设置 → 插件 → 选择插件文件”中导入。最低支持 SP 18.21.2。
@@ -57,7 +57,7 @@ pnpm dev:pet
 pnpm package:pet
 ```
 
-解压 `SPPet-v0.11.0-win-x64.zip`，运行 `SPPet.exe`。桌宠默认只显示角色：
+解压 `SPPet-v0.12.0-win-x64.zip`，运行 `SPPet.exe`。桌宠默认只显示角色：
 
 - 悬停：显示 Lv、XP、状态值、streak、金币。
 - 左键：播放用户设置的互动台词。
@@ -101,6 +101,8 @@ pnpm package:pet
 3. 设置：语言、提醒、委托数值、断连衰减、连接测试、导入导出和网站链接。
 
 排行榜不在插件中渲染；同步默认关闭，用户可在设置中主动启用，再通过超链接打开网站。
+
+在线服务集中在 `https://sppet.scsldr.cn/api/v1`。启用排行榜后只上传公开昵称、等级、XP、连续天数、专注分钟、委托分和战斗分；任务名称、日记、对话、屏幕内容和真实姓名不会上传。在线内容会缓存到插件同步存储，断网时继续使用最近成功版本。设置页可检查更新、查看日志并下载 ZIP，再在本地完成 SHA-256 校验；安装仍按 SP 官方流程由用户手动选择 ZIP。
 
 ## 本地通信和数据
 
