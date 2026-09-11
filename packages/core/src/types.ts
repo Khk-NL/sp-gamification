@@ -21,6 +21,7 @@ export interface BattleState {
   enemyId: string; enemyName: string; enemyHp: number; enemyMaxHp: number; enemyDefense: number; enemyResistances: Resistances;
   enemyAttack: number; enemyBlock: number; enemyBlockType: DamageType | null; enemyAttackBuff: number; playerBlock: number; playerBlockType: DamageType | null; enemyBurn: number; enemyWeaken: number;
   turn: number; resource: number; maxResource: number; intentIndex: number; log: string[];
+  actionsThisTurn: number;
   phase: 'story_before' | 'combat' | 'story_after'; storyIndex: number; rewardsClaimed: boolean;
 }
 export interface SPPetState {
@@ -30,7 +31,7 @@ export interface SPPetState {
   commissions: { date: string; tasks: { progress: number; target: number; claimed: boolean }; focus: { progress: number; target: number; claimed: boolean } };
   checkIn: { lastDate: string | null; streak: number };
   pet: {
-    name: string; condition: number; hp: number; baseStats: Omit<CombatStats, 'damageBonus'>; learnedSkills: string[];
+    name: string; condition: number; hp: number; baseStats: Omit<CombatStats, 'damageBonus'>; learnedSkills: string[]; equippedSkills: string[];
     inventory: Record<string, number>; equipped: Record<EquipmentSlot, string | null>; skinPart: string | null;
     buff: { xpBonus: number; coinBonus: number; attackBonus: number; battlesRemaining: number };
     lastConnectedAt: string; lastConditionDecayAt: string;

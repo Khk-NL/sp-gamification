@@ -34,7 +34,7 @@ node server.mjs
 - `/`：公开排行榜。
 - `/login.html`：注册、登录、退出和当前会话。
 - `/tools.html`：状态 JSON 本地导入/导出、战前/战后剧情编辑。
-- `/developer.html`：道具、技能、敌人、抗性、行动意图与奖励数值编辑。
+- `/developer.html`：道具、技能、敌人、Buff / Debuff、行动意图与奖励数值编辑。
 
 剧情和数值保存需要管理员会话。插件读取 `/api/content` 不需要登录；排行榜同步仍默认关闭。
 

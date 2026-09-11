@@ -68,11 +68,12 @@ ipcMain.on('pet-set-interactive', (event, interactive) => { if (fromPetWindow(ev
 ipcMain.on('pet-drag-start', (event) => {
   if (!fromPetWindow(event)) return;
   const [windowX, windowY] = windowRef.getPosition(); const pointer = screen.getCursorScreenPoint();
-  dragSession = { offsetX: pointer.x - windowX, offsetY: pointer.y - windowY };
+  dragSession = { windowX, windowY, pointerX: pointer.x, pointerY: pointer.y, lastPointerX: pointer.x, lastPointerY: pointer.y };
 });
 ipcMain.on('pet-drag-move', (event) => {
   if (!fromPetWindow(event) || !dragSession) return;
-  const pointer = screen.getCursorScreenPoint(); windowRef.setPosition(pointer.x - dragSession.offsetX, pointer.y - dragSession.offsetY, false);
+  const pointer = screen.getCursorScreenPoint(); if (pointer.x === dragSession.lastPointerX && pointer.y === dragSession.lastPointerY) return; dragSession.lastPointerX = pointer.x; dragSession.lastPointerY = pointer.y;
+  const bounds = windowRef.getBounds(); const workArea = screen.getDisplayNearestPoint(pointer).workArea; const x = Math.min(workArea.x + workArea.width - bounds.width, Math.max(workArea.x, dragSession.windowX + pointer.x - dragSession.pointerX)); const y = Math.min(workArea.y + workArea.height - bounds.height, Math.max(workArea.y, dragSession.windowY + pointer.y - dragSession.pointerY)); const [currentX, currentY] = windowRef.getPosition(); if (x !== currentX || y !== currentY) windowRef.setPosition(x, y, false);
 });
 ipcMain.on('pet-drag-end', (event) => { if (fromPetWindow(event)) dragSession = null; });
 ipcMain.handle('pet-select-skin', async () => { const result = await dialog.showOpenDialog(windowRef, { title: '选择桌宠 pet.json', properties: ['openFile'], filters: [{ name: 'Pet skin', extensions: ['json'] }] }); if (result.canceled || !result.filePaths[0]) return null; const skin = loadSkin(result.filePaths[0]); updatePetSettings({ skinJsonPath: result.filePaths[0] }); publishSnapshot(); return skin; });

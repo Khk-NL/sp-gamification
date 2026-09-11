@@ -10,24 +10,22 @@
 }
 
 .pet-zone.dragging .pet {
-  animation: drag-step .24s steps(2) infinite;
+  animation: none;
 }
 
 .pet-zone.dragging .custom-sprite {
-  animation: drag-lift .14s ease-out both;
+  animation: none;
 }
 
 .pet-zone.drag-left .pet {
   transform: translateX(-50%) scaleX(-1);
 }
 
-@keyframes drag-step {
-  50% { transform: translateX(-50%) translateY(-9px) rotate(2deg); }
-}
-
-@keyframes drag-lift {
-  to { transform: translateX(-50%) translateY(-8px); }
-}
+.drag-grip { -webkit-app-region: no-drag; pointer-events: none; }
+.bubble { font-family: "Arial Black", "Segoe UI", "Microsoft YaHei", sans-serif; font-size: 12px; font-weight: 900; }
+.settings-panel, .context-menu { font-family: "Arial Black", "Segoe UI", "Microsoft YaHei", sans-serif; font-weight: 900; }
+.settings-panel header small, .connection { font-family: "Arial Black", "Segoe UI", "Microsoft YaHei", sans-serif; font-size: 10px; font-weight: 900; }
+.path { font-family: "Segoe UI", "Microsoft YaHei", sans-serif; font-size: 9px; font-weight: 700; }
 
 .desktop::before,
 .desktop::after {

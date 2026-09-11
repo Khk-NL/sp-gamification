@@ -5,6 +5,7 @@ import {
   advanceBattleStory,
   checkIn,
   claimMapReward,
+  endTurn,
   getBattleStory,
   getComputedStats,
   hydrateState,
@@ -18,6 +19,7 @@ import {
   equipItem,
   resetState,
   seedFocusTime,
+  setEquippedSkills,
   startBattle,
   startBattleAt,
   updatePetName,
@@ -129,6 +131,8 @@ PluginAPI.onMessage?.(async (message: unknown) => {
       case 'claimMapReward': await runEngine((current, _cfg, gameContent) => claimMapReward(current, Number(data.rewardIndex), gameContent)); break;
       case 'advanceStory': await runEngine((current, _cfg, gameContent) => advanceBattleStory(current, Boolean(data.skip), gameContent)); break;
       case 'useSkill': await runEngine((current, _cfg, gameContent) => useSkill(current, String(data.skillId ?? ''), gameContent)); break;
+      case 'endTurn': await runEngine((current, _cfg, gameContent) => endTurn(current, gameContent)); break;
+      case 'setEquippedSkills': await runEngine((current, _cfg, gameContent) => setEquippedSkills(current, Array.isArray(data.skillIds) ? data.skillIds.map(String) : [], gameContent)); break;
       case 'purchaseItem': await runEngine((current, _cfg, gameContent) => purchaseItem(current, String(data.itemId ?? ''), gameContent)); break;
       case 'equipItem': await runEngine((current, _cfg, gameContent) => equipItem(current, String(data.itemId ?? ''), gameContent)); break;
       case 'useItem': await runEngine((current, _cfg, gameContent) => useItem(current, String(data.itemId ?? ''), gameContent)); break;

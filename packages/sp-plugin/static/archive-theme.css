@@ -1,11 +1,3 @@
-@font-face {
-  font-family: "Silkscreen";
-  src: url("./assets/silkscreen-bold.woff2") format("woff2");
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-}
-
 :root {
   --ink: #3d2c28;
   --panel: #fff4cf;
@@ -73,7 +65,7 @@ body::before {
 .battle-log,
 .story small,
 .bottom-nav b {
-  font-family: "Silkscreen", "Courier New", monospace;
+  font-family: "Arial Black", "Segoe UI", "Microsoft YaHei", sans-serif;
   font-weight: 700;
 }
 
@@ -96,7 +88,7 @@ body::before {
   border: 3px solid #315d2a;
   clip-path: none;
   box-shadow: inset -3px -3px #3d8137, inset 3px 3px #8bda67;
-  font: 700 16px/1 "Silkscreen", monospace;
+  font: 900 16px/1 "Arial Black", "Microsoft YaHei", sans-serif;
 }
 
 .brand strong { font-size: 13px; text-shadow: 2px 2px #4c3025; }
@@ -321,7 +313,7 @@ textarea {
 .adventure-view.active { display: block; }
 .battle-shell { display: none; }
 .battle-shell.active { display: block; }
-.battle-cue { position: fixed; z-index: 60; left: 50%; top: 42%; width: min(310px, 84vw); padding: 18px 12px; transform: translate(-50%, -50%) scale(.75); opacity: 0; pointer-events: none; text-align: center; color: #fff9db; background: #543827; border: 5px solid #fff0ac; box-shadow: inset 0 0 0 3px #bb7740, 8px 9px rgba(57, 35, 26, .45); font: 700 13px/1.5 "Silkscreen", monospace; }
+.battle-cue { position: fixed; z-index: 60; left: 50%; top: 42%; width: min(310px, 84vw); padding: 18px 12px; transform: translate(-50%, -50%) scale(.75); opacity: 0; pointer-events: none; text-align: center; color: #fff9db; background: #543827; border: 5px solid #fff0ac; box-shadow: inset 0 0 0 3px #bb7740, 8px 9px rgba(57, 35, 26, .45); font: 900 15px/1.5 "Arial Black", "Microsoft YaHei", sans-serif; }
 .battle-cue.show { animation: cue-pop 1.8s steps(5); }
 .battle-cue.cue-start { color: #e9fbff; background: #267fa8; border-color: #8ee6ff; }
 .battle-cue.cue-win { color: #fffbd0; background: #4d963e; border-color: #d8f57b; }
@@ -358,7 +350,7 @@ textarea {
 .map-node small { display: block; }
 .map-node i { font-style: normal; font-size: 24px; line-height: 1; }
 .map-node b { margin: 8px 0 5px; font-size: 12px; }
-.map-node small { color: #76543f; font: 700 7px/1.5 "Silkscreen", monospace; }
+.map-node small { color: #76543f; font: 900 11px/1.5 "Arial Black", "Microsoft YaHei", sans-serif; }
 .map-node.reward { border-color: #9a6c26; background: #ffe08a; }
 .map-node.battle { border-color: #6a4834; }
 .map-node.boss { color: #fff0d0; background: #a64c42; border-color: #68312e; }
@@ -367,7 +359,7 @@ textarea {
 .map-node.locked { color: #8b8172; background: #c8bda0; filter: grayscale(.7); }
 .element-rules { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 14px; }
 .element-rules b { grid-column: 1 / -1; font-size: 14px; }
-.element-rules span { padding: 7px; color: #5f4639; background: #f6dfa9; border: 2px solid #b98b53; font: 700 7px/1.45 "Silkscreen", monospace; }
+.element-rules span { padding: 7px; color: #5f4639; background: #f6dfa9; border: 2px solid #b98b53; font: 900 11px/1.45 "Arial Black", "Microsoft YaHei", sans-serif; }
 
 .enemy,
 .pet-fighter { --element-color: #b9b1a4; }
@@ -419,3 +411,86 @@ textarea {
   .world-map { gap: 10px 18px; padding-inline: 3px; }
   .map-node { min-height: 86px; padding: 7px 4px; }
 }
+
+/* Readable pixel UI: decorative shapes remain pixel-like, while all labels use a heavy screen font. */
+:root,
+button,
+input,
+select,
+textarea,
+.section-id,
+.brand strong,
+.brand small,
+.network,
+.level-block span,
+.level-block b,
+.xp-panel span,
+.metric-grid b,
+.panel > header span,
+.commission span,
+.stats-panel dt,
+.stats-panel dd,
+.equipment,
+.filters button,
+.item-icon,
+.item footer,
+.connection,
+.links a,
+.chapter-label small,
+.chapter-label span,
+.enemy-data span,
+.enemy-data small,
+.enemy-data strong,
+.battle-log,
+.story small,
+.bottom-nav b,
+.map-node small,
+.element-rules span,
+.battle-cue {
+  font-family: "Arial Black", "Segoe UI", "Microsoft YaHei", sans-serif;
+  font-weight: 900;
+  letter-spacing: .025em;
+}
+.brand small, .network, .section-id, .panel > header span, .chapter-label small, .chapter-label span, .enemy-data span, .enemy-data small, .enemy-data strong, .story small, .bottom-nav b { font-size: 11px; }
+.equipment, .connection, .links a, .battle-log, .map-node small, .element-rules span { font-size: 11px; line-height: 1.55; }
+.simple-rule { color: #6a4d3d; font-size: 12px; line-height: 1.55; }
+
+.skill-loadout { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.loadout-skill { min-height: 72px; padding: 10px; text-align: left; border-left: 7px solid var(--element-color); }
+.loadout-skill b, .loadout-skill small { display: block; }
+.loadout-skill b { font-size: 13px; }
+.loadout-skill small { margin-top: 6px; color: #705343; font-size: 11px; line-height: 1.45; }
+.loadout-skill.selected { color: #fff9dc; background: #579d45; border-color: #315e2c; }
+.loadout-skill.selected small { color: #eaffcf; }
+
+.world-map { display: flex; flex-direction: column; gap: 0; padding: 20px 12px; background: linear-gradient(90deg, transparent 49%, rgba(94, 66, 45, .42) 49% 51%, transparent 51%), url("./assets/kenney-pixel-backgrounds.png") center bottom / auto 110px repeat-x, #9bd6e8; }
+.map-floor { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding: 27px 5px 18px; }
+.map-floor:not(:last-child)::after { content: ""; position: absolute; left: 50%; bottom: -11px; width: 4px; height: 24px; transform: translateX(-50%); background: #70533c; box-shadow: 2px 0 #efd18b; }
+.floor-label { position: absolute; left: 50%; top: 3px; transform: translateX(-50%); color: #694a38; font: 900 11px/1 "Arial Black", "Microsoft YaHei", sans-serif; }
+.map-floor .map-node { min-height: 96px; transform: none; }
+.map-floor .map-node.boss { grid-column: 1 / -1; width: 70%; justify-self: center; }
+.map-node.bypassed { opacity: .42; filter: grayscale(1); }
+.map-node.bypassed::after { content: "未选择"; display: block; margin-top: 5px; font-size: 10px; }
+
+.player-hp-track { position: absolute; left: -18px; right: -18px; bottom: -39px; height: 12px; padding: 2px; background: #4f3027; border: 2px solid #2f211d; }
+.player-hp-track span { display: block; width: 100%; height: 100%; background: repeating-linear-gradient(90deg, #58b84d 0 11px, #83da60 11px 15px); transition: width .2s; }
+.end-turn { width: 100%; margin-top: 8px; color: #fff8dc; background: #d56c3d; border-color: #743720; }
+.effect-module, .damage-formula { margin-top: 10px; padding: 10px; background: #f6dfa9; border: 3px solid #9b6c49; }
+.effect-module > b, .damage-formula > b { display: block; margin-bottom: 7px; font-size: 12px; }
+.battle-effects { display: grid; gap: 4px; }
+.battle-effects span { padding: 6px 7px; color: #5e4538; background: #fff0bd; border-left: 4px solid #5ba349; font-size: 11px; }
+.damage-formula code, .damage-formula span { display: block; font-family: "Arial Black", "Segoe UI", "Microsoft YaHei", sans-serif; font-weight: 900; }
+.damage-formula code { color: #3c5f32; font-size: 11px; line-height: 1.55; white-space: normal; }
+.damage-formula span { margin-top: 6px; color: #79533d; font-size: 10px; line-height: 1.5; }
+
+@media (max-width: 370px) {
+  .skill-loadout { grid-template-columns: 1fr; }
+  .map-floor { gap: 10px; }
+  .map-floor .map-node.boss { width: 88%; }
+}
+
+body,
+body * { font-family: "Arial Black", "Segoe UI", "Microsoft YaHei", sans-serif !important; font-weight: 900; }
+.headline p, .level-block span, .metric-grid span, .commission, label, .message, .filters button, .item footer, .pet-fighter b { font-size: 11px; }
+.xp-panel span, .commission > div:first-child, .item b, .panel > header b, .skill b { font-size: 13px; }
+.item small, .skill small, small { font-size: 11px; line-height: 1.5; }

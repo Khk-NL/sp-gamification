@@ -20,19 +20,17 @@ await build({
 });
 await cp(path.join(root, 'static'), dist, { recursive: true });
 const indexPath = path.join(dist, 'index.html');
-const [html, baseCss, themeCss, uiScript, pixelTiles, pixelBackgrounds, pixelFont] = await Promise.all([
+const [html, baseCss, themeCss, uiScript, pixelTiles, pixelBackgrounds] = await Promise.all([
   readFile(indexPath, 'utf8'),
   readFile(path.join(dist, 'index.css'), 'utf8'),
   readFile(path.join(dist, 'archive-theme.css'), 'utf8'),
   readFile(path.join(dist, 'index.js'), 'utf8'),
   readFile(path.join(dist, 'assets', 'kenney-pixel-platformer.png')),
   readFile(path.join(dist, 'assets', 'kenney-pixel-backgrounds.png')),
-  readFile(path.join(dist, 'assets', 'silkscreen-bold.woff2')),
 ]);
 const embeddedThemeCss = themeCss
   .replaceAll('./assets/kenney-pixel-platformer.png', `data:image/png;base64,${pixelTiles.toString('base64')}`)
-  .replaceAll('./assets/kenney-pixel-backgrounds.png', `data:image/png;base64,${pixelBackgrounds.toString('base64')}`)
-  .replaceAll('./assets/silkscreen-bold.woff2', `data:font/woff2;base64,${pixelFont.toString('base64')}`);
+  .replaceAll('./assets/kenney-pixel-backgrounds.png', `data:image/png;base64,${pixelBackgrounds.toString('base64')}`);
 const standaloneHtml = html
   .replace('<link rel="stylesheet" href="./index.css">', `<style data-sppet-style="base">${baseCss}</style>`)
   .replace('<link rel="stylesheet" href="./archive-theme.css">', `<style data-sppet-style="theme">${embeddedThemeCss}</style>`)
