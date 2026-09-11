@@ -36,7 +36,7 @@ pnpm package:plugin
 生成：
 
 ```text
-packages\sp-plugin\release\SPPet-SP-v0.10.0.zip
+packages\sp-plugin\release\SPPet-SP-v0.11.0.zip
 ```
 
 在 Super Productivity“设置 → 插件 → 选择插件文件”中导入。最低支持 SP 18.21.2。
@@ -57,7 +57,7 @@ pnpm dev:pet
 pnpm package:pet
 ```
 
-解压 `SPPet-v0.10.0-win-x64.zip`，运行 `SPPet.exe`。桌宠默认只显示角色：
+解压 `SPPet-v0.11.0-win-x64.zip`，运行 `SPPet.exe`。桌宠默认只显示角色：
 
 - 悬停：显示 Lv、XP、状态值、streak、金币。
 - 左键：播放用户设置的互动台词。
@@ -76,6 +76,7 @@ pnpm package:pet
 - 修改角色 Prompt 会立即清空短期对话上下文，但保留本地历史；历史页删除会同步修改 `%APPDATA%\SPPet\chat-history.json`。
 - “当前窗口读取”和“主动屏幕分析”是两项独立权限，均默认关闭。前者只在用户点击时读取进程名/标题；后者只在点击“看看我的屏幕”时截取并压缩当前显示器一次，分析后不保存图片。
 - 右键“专注计时”可设置 5–120 分钟，以及用户自己的工作/娱乐/游戏关键词。启用窗口读取权限后，专注期间每 10 秒只在本地分类并提醒偏离；完成奖励每日最多 4 次，同一 session 只结算一次。
+- 右键“个人计划”可分别启用课程表、日记、长期目标和重要日子。四个模块默认关闭且不影响桌宠基础运行；日记只有在单独授权并主动点击后才会交给 AI。
 
 ## 游戏规则
 

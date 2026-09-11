@@ -1,6 +1,6 @@
 {
   "name": "@sppet/desktop-pet",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "private": true,
   "description": "SPPet 透明桌宠悬浮窗与本地桥接",
   "author": "SCSldr",

@@ -8,7 +8,8 @@ const settingsPanel = document.getElementById('settings-panel');
 const chatPanel = document.getElementById('chat-panel');
 const historyPanel = document.getElementById('history-panel');
 const focusPanel = document.getElementById('focus-panel');
-const overlayPanels = [settingsPanel, chatPanel, historyPanel, focusPanel];
+const productivityPanel = document.getElementById('productivity-panel');
+const overlayPanels = [settingsPanel, chatPanel, historyPanel, focusPanel, productivityPanel];
 const messageQueue = [];
 let snapshot = null, showingMessage = false, messageTimer = null, activeSkinId = null, frame = 0, spriteState = 'idle', lastInteraction = Date.now();
 let dragGesture = null, mouseInteractive = null, activeEventEffect = null, eventEffectTimer = null;
@@ -17,6 +18,7 @@ let activeCharacter = null, characterState = 'idle', characterStateTimer = null,
 let characterAudio = null;
 let aiFormDirty = false;
 let focusSettingsDirty = false;
+let productivityDirty = false;
 const CHARACTER_STATES = ['idle', 'walk', 'sleep', 'happy', 'sad', 'angry', 'tired', 'eat', 'touch', 'drag', 'fall', 'edge', 'battle', 'victory', 'defeat', 'talk'];
 const anyPanelOpen = () => overlayPanels.some((panel) => panel.classList.contains('open'));
 
@@ -56,6 +58,7 @@ function renderAi(ai) {
 }
 function renderAwareness(awareness) { if (!awareness) return; document.getElementById('current-window-enabled').checked = awareness.settings?.currentWindowEnabled === true; document.getElementById('vision-enabled').checked = awareness.settings?.visionEnabled === true; const current = awareness.currentWindow; document.getElementById('current-window-result').textContent = current ? `${current.process || '未知进程'}\n${current.title || '无标题'}\n${new Date(current.capturedAt).toLocaleString()}` : '尚未读取'; }
 function renderFocus(focus) { if (!focus) return; const session = focus.session, seconds = session?.status === 'running' ? session.remainingSeconds : (focus.settings?.durationMinutes || 25) * 60; document.getElementById('focus-clock').textContent = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`; document.getElementById('focus-status').textContent = session?.status === 'running' ? '专注进行中' : session?.status === 'completed' ? (session.pendingReward ? '已完成，等待连接 SP 结算' : '已完成并结算') : session?.status === 'cancelled' ? '已取消' : '尚未开始'; document.getElementById('start-focus').disabled = session?.status === 'running' || session?.pendingReward; document.getElementById('cancel-focus').disabled = session?.status !== 'running'; if (!focusSettingsDirty) { document.getElementById('focus-duration').value = focus.settings?.durationMinutes || 25; document.getElementById('focus-work-apps').value = (focus.settings?.workApps || []).join('\n'); document.getElementById('focus-entertainment-apps').value = (focus.settings?.entertainmentApps || []).join('\n'); document.getElementById('focus-game-apps').value = (focus.settings?.gameApps || []).join('\n'); } }
+function renderProductivity(value) { if (!value || productivityDirty) return; document.getElementById('course-enabled').checked = value.courseSchedule.enabled; document.getElementById('course-json').value = JSON.stringify(value.courseSchedule.entries, null, 2); document.getElementById('journal-enabled').checked = value.journal.enabled; document.getElementById('journal-ai-enabled').checked = value.journal.aiReadEnabled; document.getElementById('journal-json').value = JSON.stringify(value.journal.entries, null, 2); document.getElementById('goals-enabled').checked = value.goals.enabled; document.getElementById('goals-json').value = JSON.stringify(value.goals.entries, null, 2); document.getElementById('dates-enabled').checked = value.importantDates.enabled; document.getElementById('dates-json').value = JSON.stringify(value.importantDates.entries, null, 2); }
 function render(next) {
   snapshot = next; idleLines = next.petProfile?.idleLines?.filter(Boolean) || idleLines; clickLines = next.petProfile?.clickLines?.filter(Boolean) || clickLines; renderSkin(next.skin); renderCharacter(next.character, next.skin);
   pet.className = `pet ${next.state?.pet?.skinPart || ''}`; const connected = Boolean(next.bridge?.connected); document.getElementById('connection').className = `connection ${connected ? 'connected' : ''}`; document.getElementById('connection').textContent = connected ? `● CONNECTED // 127.0.0.1:${next.bridge.port}` : `● DISCONNECTED // 127.0.0.1:${next.bridge?.port || 47821}`; document.getElementById('data-dir').textContent = next.dataDirectory || '';
@@ -64,6 +67,7 @@ function render(next) {
   renderAi(next.ai);
   renderAwareness(next.awareness);
   renderFocus(next.focus);
+  renderProductivity(next.productivity);
   for (const entry of next.events || []) { const feedback = eventFeedback(entry); if (feedback) messageQueue.push(feedback); } playNext();
 }
 
@@ -137,7 +141,7 @@ setInterval(() => {
 const openPanel = (panel) => { setMouseInteractive(true); contextMenu.classList.remove('open'); overlayPanels.forEach((entry) => entry.classList.toggle('open', entry === panel)); window.petApi.setSettingsOpen(true); };
 const closePanels = () => { overlayPanels.forEach((panel) => panel.classList.remove('open')); window.petApi.setSettingsOpen(false); playNext(); setTimeout(() => { if (!petZone.matches(':hover')) setMouseInteractive(false); }, 0); };
 const openSettings = () => openPanel(settingsPanel);
-document.getElementById('open-settings').addEventListener('click', openSettings); document.getElementById('open-chat').addEventListener('click', () => openPanel(chatPanel)); document.getElementById('open-history').addEventListener('click', () => openPanel(historyPanel)); document.getElementById('open-focus').addEventListener('click', () => openPanel(focusPanel)); document.querySelectorAll('.panel-close').forEach((button) => button.addEventListener('click', closePanels)); window.petApi.onOpenSettings(openSettings);
+document.getElementById('open-settings').addEventListener('click', openSettings); document.getElementById('open-chat').addEventListener('click', () => openPanel(chatPanel)); document.getElementById('open-history').addEventListener('click', () => openPanel(historyPanel)); document.getElementById('open-focus').addEventListener('click', () => openPanel(focusPanel)); document.getElementById('open-productivity').addEventListener('click', () => openPanel(productivityPanel)); document.querySelectorAll('.panel-close').forEach((button) => button.addEventListener('click', closePanels)); window.petApi.onOpenSettings(openSettings);
 document.getElementById('hide').addEventListener('click', () => window.petApi.hide()); document.getElementById('close').addEventListener('click', () => window.petApi.close());
 document.getElementById('skin').addEventListener('click', async () => { try { const skin = await window.petApi.selectSkin(); if (skin) { renderSkin(skin); showBubble(`已载入皮肤：${skin.meta.displayName}`); } } catch (error) { showBubble(error.message || String(error)); } });
 document.getElementById('clear-skin').addEventListener('click', async () => { await window.petApi.clearSkin(); renderSkin(null); showBubble('已恢复默认外观。'); });
@@ -169,4 +173,9 @@ document.getElementById('cancel-focus').addEventListener('click', async () => { 
 window.petApi.onFocusSnapshot(renderFocus);
 window.petApi.onFocusCompleted(() => { messageQueue.push({ message: '专注计时完成！正在等待 Super Productivity 确认奖励。', state: 'happy' }); playNext(); });
 window.petApi.onFocusWindowCategory(({ category }) => { if (category === 'entertainment' || category === 'game') { messageQueue.push({ message: `检测到你配置的${category === 'game' ? '游戏' : '娱乐'}应用，是否回到专注目标？`, state: 'talk' }); playNext(); } });
+document.querySelectorAll('#productivity-panel input,#productivity-panel textarea').forEach((element) => element.addEventListener('input', () => { productivityDirty = true; }));
+const productivityControls = { courseSchedule: ['course-enabled', 'course-json'], journal: ['journal-enabled', 'journal-json'], goals: ['goals-enabled', 'goals-json'], importantDates: ['dates-enabled', 'dates-json'] };
+document.querySelectorAll('[data-save-module]').forEach((button) => button.addEventListener('click', async () => { const moduleName = button.dataset.saveModule, [enabledId, jsonId] = productivityControls[moduleName], message = document.getElementById('productivity-message'); try { const value = { enabled: document.getElementById(enabledId).checked, entries: JSON.parse(document.getElementById(jsonId).value || '[]') }; if (moduleName === 'journal') value.aiReadEnabled = document.getElementById('journal-ai-enabled').checked; await window.petApi.replaceProductivity(moduleName, value); productivityDirty = false; message.textContent = '模块已保存。'; } catch (error) { message.textContent = `保存失败：${error.message || String(error)}`; } }));
+document.getElementById('journal-ai').addEventListener('click', async () => { const message = document.getElementById('productivity-message'); message.textContent = '正在读取你主动选择的今日日记…'; try { await window.petApi.analyzeTodayJournal(); message.textContent = '桌宠已回复，可在 AI 聊天或历史记录查看。'; } catch (error) { message.textContent = error.message || String(error); } });
+window.petApi.onProductivityEvent((entry) => { if (entry.type === 'COURSE_STARTING') messageQueue.push({ message: `${entry.payload.title} 将在 ${entry.payload.minutes} 分钟后开始。`, state: 'talk' }); else if (entry.type === 'IMPORTANT_DATE_APPROACHING') messageQueue.push({ message: `${entry.payload.title}：还有 ${entry.payload.days} 天。`, state: 'talk' }); else if (entry.type === 'GOAL_PROGRESS_UPDATED') messageQueue.push({ message: `${entry.payload.title} 进度更新为 ${entry.payload.progress}%。`, state: 'happy' }); playNext(); });
 setMouseInteractive(false);

@@ -8,6 +8,7 @@ const { AssetManager } = require('./asset-manager.cjs');
 const { AiService } = require('./ai-service.cjs');
 const { SystemAwareness } = require('./system-awareness.cjs');
 const { FocusTimer } = require('./focus-timer.cjs');
+const { ProductivityHub } = require('./productivity-modules.cjs');
 
 const appData = process.env.APPDATA || os.homedir();
 const DATA_DIRECTORY = process.env.SPPET_DATA_DIR || process.env.SP_GAMIFICATION_DATA_DIR || path.join(appData, 'SPPet');
@@ -20,13 +21,14 @@ const PET_PROFILE_FILE = path.join(DATA_DIRECTORY, 'pet-profile.json');
 const CHARACTERS_DIRECTORY = path.join(DATA_DIRECTORY, 'characters');
 const BRIDGE_PORT = 47821;
 
-let windowRef, tray, watcher, characterWatcher, readTimer, bridgeServer, dragSession, fallTimer, walkTimer, focusTickTimer, focusWindowTimer, settingsOpen = false;
+let windowRef, tray, watcher, characterWatcher, readTimer, bridgeServer, dragSession, fallTimer, walkTimer, focusTickTimer, focusWindowTimer, productivityTimer, settingsOpen = false;
 let bridgeConnected = false, bridgeLastSync = null, lastEventId = null, initialized = false;
 const bridgeSockets = new Set();
 const assetManager = new AssetManager(path.join(__dirname, '..', 'assets', 'characters'), CHARACTERS_DIRECTORY);
 const aiService = new AiService(DATA_DIRECTORY);
 const systemAwareness = new SystemAwareness(DATA_DIRECTORY);
 const focusTimer = new FocusTimer(DATA_DIRECTORY);
+const productivityHub = new ProductivityHub(DATA_DIRECTORY);
 
 const readJson = (file, fallback) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; } };
 const writeJsonAtomic = (file, value) => { const temp = `${file}.${process.pid}.tmp`; fs.writeFileSync(temp, `${JSON.stringify(value, null, 2)}\n`, 'utf8'); fs.renameSync(temp, file); };
@@ -49,7 +51,7 @@ const publishSnapshot = () => {
   if (!initialized) { const cursor = readJson(CURSOR_FILE, { lastEventId: null }); lastEventId = typeof cursor.lastEventId === 'string' ? cursor.lastEventId : events.at(-1)?.id ?? null; initialized = true; }
   let cursorIndex = lastEventId ? events.findIndex((entry) => entry.id === lastEventId) : -1; if (lastEventId && cursorIndex < 0) cursorIndex = events.length - 1; const unseen = cursorIndex >= 0 ? events.slice(cursorIndex + 1) : lastEventId ? [] : events;
   if (unseen.length) { lastEventId = unseen.at(-1).id; writeJsonAtomic(CURSOR_FILE, { lastEventId, updatedAt: new Date().toISOString() }); }
-  windowRef.webContents.send('sppet-snapshot', { state, events: unseen, dataDirectory: DATA_DIRECTORY, bridge: { connected: bridgeConnected, port: BRIDGE_PORT, lastSync: bridgeLastSync }, skin: currentSkin(), character: currentCharacter(), characters: assetManager.list(), petSettings: readJson(PET_SETTINGS_FILE, { size: 1, alwaysOnTop: true, gravityEnabled: true, autoWalk: false }), petProfile: readJson(PET_PROFILE_FILE, { idleLines: [], clickLines: [] }), ai: { ...aiService.snapshot(), systemPrompt: aiService.systemPrompt() }, awareness: systemAwareness.snapshot(), focus: focusTimer.snapshot() });
+  windowRef.webContents.send('sppet-snapshot', { state, events: unseen, dataDirectory: DATA_DIRECTORY, bridge: { connected: bridgeConnected, port: BRIDGE_PORT, lastSync: bridgeLastSync }, skin: currentSkin(), character: currentCharacter(), characters: assetManager.list(), petSettings: readJson(PET_SETTINGS_FILE, { size: 1, alwaysOnTop: true, gravityEnabled: true, autoWalk: false }), petProfile: readJson(PET_PROFILE_FILE, { idleLines: [], clickLines: [] }), ai: { ...aiService.snapshot(), systemPrompt: aiService.systemPrompt() }, awareness: systemAwareness.snapshot(), focus: focusTimer.snapshot(), productivity: productivityHub.snapshot() });
 };
 const scheduleRead = () => { clearTimeout(readTimer); readTimer = setTimeout(publishSnapshot, 90); };
 
@@ -77,10 +79,11 @@ const maybeWalk = () => { const prefs = readJson(PET_SETTINGS_FILE, { autoWalk: 
 const tickFocusTimer = () => { const completed = focusTimer.tick(); if (completed) { sendBridgeEvent('FOCUS_TIMER_COMPLETED', { sessionId: completed.id, minutes: completed.durationMinutes, occurredAt: new Date(completed.completedAt).toISOString() }); windowRef?.webContents.send('focus-completed', completed); } if (windowRef && !windowRef.isDestroyed()) windowRef.webContents.send('focus-snapshot', focusTimer.snapshot()); };
 let lastFocusCategory = 'other';
 const monitorFocusWindow = async () => { if (focusTimer.snapshot().session?.status !== 'running' || !systemAwareness.settings().currentWindowEnabled) return; try { const current = await systemAwareness.readCurrentWindow(), category = focusTimer.classify(current); if (category !== lastFocusCategory) { lastFocusCategory = category; windowRef?.webContents.send('focus-window-category', { category, current }); } } catch { /* Monitoring failure does not stop the timer. */ } };
+const tickProductivity = () => { for (const entry of productivityHub.tick()) { windowRef?.webContents.send('productivity-event', entry); sendBridgeEvent(entry.type, entry.payload); } };
 const createWindow = () => { const prefs = readJson(PET_SETTINGS_FILE, { alwaysOnTop: true }); windowRef = new BrowserWindow({ width: 250, height: 300, transparent: true, frame: false, resizable: false, alwaysOnTop: prefs.alwaysOnTop !== false, skipTaskbar: true, show: false, hasShadow: false, webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false } }); const area = screen.getPrimaryDisplay().workArea; windowRef.setPosition(area.x + area.width - 270, area.y + area.height - 300, false); windowRef.loadFile(path.join(__dirname, 'index.html')); windowRef.once('ready-to-show', () => { showWindow(); settleToSurface(); setWindowInteractive(false); }); windowRef.on('blur', () => { dragSession = null; }); };
 const createTray = () => { tray = new Tray(createTrayIcon()); tray.setToolTip('SPPet'); tray.setContextMenu(Menu.buildFromTemplate([{ label: '显示 SPPet', click: showWindow }, { label: '桌宠设置', click: () => { showWindow(); resizeForSettings(true); windowRef?.webContents.send('open-pet-settings'); } }, { type: 'separator' }, { label: '退出', click: () => app.quit() }])); tray.on('double-click', showWindow); };
 
-if (!app.requestSingleInstanceLock()) app.quit(); else { app.on('second-instance', showWindow); app.whenReady().then(() => { fs.mkdirSync(DATA_DIRECTORY, { recursive: true }); migrateLegacyData(); createWindow(); createTray(); startBridgeServer(); watcher = fs.watch(DATA_DIRECTORY, (_event, filename) => { if (['state.json','events.json','pet-settings.json','pet-profile.json'].includes(String(filename))) scheduleRead(); }); characterWatcher = fs.watch(CHARACTERS_DIRECTORY, { recursive: true }, () => { assetManager.clearCache(); scheduleRead(); }); setInterval(maybeWalk, 30_000); focusTickTimer = setInterval(tickFocusTimer, 1000); focusWindowTimer = setInterval(() => { void monitorFocusWindow(); }, 10_000); }); }
+if (!app.requestSingleInstanceLock()) app.quit(); else { app.on('second-instance', showWindow); app.whenReady().then(() => { fs.mkdirSync(DATA_DIRECTORY, { recursive: true }); migrateLegacyData(); createWindow(); createTray(); startBridgeServer(); watcher = fs.watch(DATA_DIRECTORY, (_event, filename) => { if (['state.json','events.json','pet-settings.json','pet-profile.json'].includes(String(filename))) scheduleRead(); }); characterWatcher = fs.watch(CHARACTERS_DIRECTORY, { recursive: true }, () => { assetManager.clearCache(); scheduleRead(); }); setInterval(maybeWalk, 30_000); focusTickTimer = setInterval(tickFocusTimer, 1000); focusWindowTimer = setInterval(() => { void monitorFocusWindow(); }, 10_000); productivityTimer = setInterval(tickProductivity, 60_000); tickProductivity(); }); }
 ipcMain.on('pet-hide', () => windowRef?.hide()); ipcMain.on('pet-close', () => app.quit()); ipcMain.on('pet-settings-open', (_event, open) => { settingsOpen = Boolean(open); resizeForSettings(settingsOpen); });
 const fromPetWindow = (event) => windowRef && !windowRef.isDestroyed() && event.sender === windowRef.webContents;
 ipcMain.on('pet-set-interactive', (event, interactive) => { if (fromPetWindow(event)) setWindowInteractive(Boolean(interactive)); });
@@ -118,4 +121,6 @@ ipcMain.handle('awareness-vision', async (event) => { if (!fromPetWindow(event))
 ipcMain.handle('focus-update-settings', async (event, changes) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); const value = focusTimer.updateSettings(changes || {}); publishSnapshot(); return value; });
 ipcMain.handle('focus-start', async (event) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); lastFocusCategory = 'other'; const value = focusTimer.start(); publishSnapshot(); return value; });
 ipcMain.handle('focus-cancel', async (event) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); const value = focusTimer.cancel(); publishSnapshot(); return value; });
-app.on('before-quit', () => { watcher?.close(); characterWatcher?.close(); bridgeServer?.close(); clearTimeout(readTimer); clearInterval(fallTimer); clearInterval(walkTimer); clearInterval(focusTickTimer); clearInterval(focusWindowTimer); }); app.on('window-all-closed', () => {});
+ipcMain.handle('productivity-replace', async (event, moduleName, value) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); const result = productivityHub.replace(String(moduleName), value || {}); for (const entry of result.events) windowRef?.webContents.send('productivity-event', entry); publishSnapshot(); return result; });
+ipcMain.handle('productivity-journal-ai', async (event) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); const journal = productivityHub.todayJournal(); const entry = await aiService.chat(`这是我今天主动选择分享的日记，请只基于这段文字给出简短回应：\n${journal.text}`); publishSnapshot(); return entry; });
+app.on('before-quit', () => { watcher?.close(); characterWatcher?.close(); bridgeServer?.close(); clearTimeout(readTimer); clearInterval(fallTimer); clearInterval(walkTimer); clearInterval(focusTickTimer); clearInterval(focusWindowTimer); clearInterval(productivityTimer); }); app.on('window-all-closed', () => {});

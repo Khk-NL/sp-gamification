@@ -24,6 +24,8 @@ contextBridge.exposeInMainWorld('petApi', {
   updateFocusSettings: (changes) => ipcRenderer.invoke('focus-update-settings', changes),
   startFocus: () => ipcRenderer.invoke('focus-start'),
   cancelFocus: () => ipcRenderer.invoke('focus-cancel'),
+  replaceProductivity: (moduleName, value) => ipcRenderer.invoke('productivity-replace', moduleName, value),
+  analyzeTodayJournal: () => ipcRenderer.invoke('productivity-journal-ai'),
   setSettingsOpen: (open) => ipcRenderer.send('pet-settings-open', open),
   setInteractive: (interactive) => ipcRenderer.send('pet-set-interactive', interactive),
   dragStart: () => ipcRenderer.send('pet-drag-start'),
@@ -53,4 +55,5 @@ contextBridge.exposeInMainWorld('petApi', {
   onFocusSnapshot: (handler) => { const listener = (_event, value) => handler(value); ipcRenderer.on('focus-snapshot', listener); return () => ipcRenderer.removeListener('focus-snapshot', listener); },
   onFocusCompleted: (handler) => { const listener = (_event, value) => handler(value); ipcRenderer.on('focus-completed', listener); return () => ipcRenderer.removeListener('focus-completed', listener); },
   onFocusWindowCategory: (handler) => { const listener = (_event, value) => handler(value); ipcRenderer.on('focus-window-category', listener); return () => ipcRenderer.removeListener('focus-window-category', listener); },
+  onProductivityEvent: (handler) => { const listener = (_event, value) => handler(value); ipcRenderer.on('productivity-event', listener); return () => ipcRenderer.removeListener('productivity-event', listener); },
 });

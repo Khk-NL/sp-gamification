@@ -2,7 +2,7 @@
 
 ## 当前阶段
 
-Phase 7 已完成，当前版本 `0.10.0`；下一阶段为 Phase 8（统一在线 API）。
+Phase 7 已完成，当前版本 `0.11.0`；下一阶段为 Phase 8（统一在线 API）。
 
 ## 已完成
 
@@ -18,6 +18,7 @@ Phase 7 已完成，当前版本 `0.10.0`；下一阶段为 Phase 8（统一在�
 - 独立 AI Service 提供可编辑角色 Prompt、御主档案、OpenAI-compatible 聊天和实际本地历史删除；AI 默认关闭且 API Key 不落盘。
 - System Awareness 将当前窗口读取和主动 Vision 拆成两项默认关闭的权限；窗口信息不自动持久化，截图不落盘。
 - 专注计时支持用户自定义窗口分类、本地偏离提醒、断线待结算、session 去重和每日 4 次奖励上限。
+- 课程表、日记、长期目标、重要日子作为四个默认关闭的本地可选模块运行，并发送课程、目标和日期事件。
 
 ## 重要文件
 
@@ -30,6 +31,7 @@ Phase 7 已完成，当前版本 `0.10.0`；下一阶段为 Phase 8（统一在�
 - `packages/desktop-pet/src/ai-service.cjs`：AI 配置、System Prompt、御主档案、短期上下文和本地历史。
 - `packages/desktop-pet/src/system-awareness.cjs`：授权配置与 Windows 当前窗口单次探针。
 - `packages/desktop-pet/src/focus-timer.cjs`：计时状态、用户分类规则和待确认奖励。
+- `packages/desktop-pet/src/productivity-modules.cjs`：四类可选个人计划数据、授权和提醒事件。
 - `DEVELOP_LOG.md`：阶段审计和完成记录。
 
 ## 当前数据结构
