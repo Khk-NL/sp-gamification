@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('petApi', {
   dragStart: () => ipcRenderer.send('pet-drag-start'),
   dragMove: () => ipcRenderer.send('pet-drag-move'),
   dragEnd: () => ipcRenderer.send('pet-drag-end'),
+  touched: () => ipcRenderer.send('pet-touched'),
   onSnapshot: (handler) => {
     const listener = (_event, snapshot) => handler(snapshot);
     ipcRenderer.on('sppet-snapshot', listener);

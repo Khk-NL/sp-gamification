@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_CONTENT, advanceBattleStory, checkIn, claimMapReward, createInitialState, endTurn, getComputedStats, normalizeContent, onDayChecked, onFocusTimeAdded, onPetConnectionChecked, onTaskCompleted, purchaseItem, equipItem, seedFocusTime, setEquippedSkills, startBattle, startBattleAt, useSkill } from '../dist/index.js';
+import { DEFAULT_CONTENT, EventBus, advanceBattleStory, checkIn, claimMapReward, createInitialState, endTurn, getComputedStats, normalizeContent, onDailyReviewCompleted, onDayChecked, onFocusTimeAdded, onPetConnectionChecked, onPetTouched, onTaskCompleted, purchaseItem, equipItem, seedFocusTime, setEquippedSkills, setPlayMode, startBattle, startBattleAt, useSkill } from '../dist/index.js';
 
 test('任务不直接发金币经验，完成委托后发经验且任务不重复结算', () => {
   let state = createInitialState('2026-09-10T08:00:00+08:00');
@@ -8,7 +8,7 @@ test('任务不直接发金币经验，完成委托后发经验且任务不重�
   const duplicate = onTaskCompleted(state, { taskId: 'a' });
   state = onTaskCompleted(state, { taskId: 'b' }).state;
   const completed = onTaskCompleted(state, { taskId: 'c' });
-  assert.equal(duplicate.events.length, 0); assert.equal(completed.state.totalTasksCompleted, 3); assert.equal(completed.state.coins, 0); assert.equal(completed.state.xp, 30); assert.equal(completed.events.some((entry) => entry.type === 'COMMISSION_COMPLETED'), true);
+  assert.equal(duplicate.events.length, 0); assert.equal(completed.state.totalTasksCompleted, 3); assert.equal(completed.state.coins, 5); assert.equal(completed.state.xp, 30); assert.equal(completed.events.some((entry) => entry.type === 'COMMISSION_COMPLETED'), true);
 });
 
 test('连续自然日增长 streak，中断后归零', () => {
@@ -24,7 +24,7 @@ test('漏登每天扣 10 状态，状态耗尽后扣 HP，且同日不重复', (
 });
 
 test('专注按观察差值推进委托且不重复', () => {
-  let state = seedFocusTime(createInitialState(), 'task-1', 60).state; state = onFocusTimeAdded(state, { sourceId: 'task-1', sourceTotalMinutes: 109 }).state; assert.equal(state.xp, 0); const reward = onFocusTimeAdded(state, { sourceId: 'task-1', sourceTotalMinutes: 110 }); assert.equal(reward.state.xp, 40); const duplicate = onFocusTimeAdded(reward.state, { sourceId: 'task-1', sourceTotalMinutes: 110 }); assert.equal(duplicate.state.totalFocusMinutes, 50); assert.equal(duplicate.events.length, 0);
+  let state = seedFocusTime(createInitialState(), 'task-1', 60).state; state = onFocusTimeAdded(state, { sourceId: 'task-1', sourceTotalMinutes: 119 }).state; assert.equal(state.xp, 0); const reward = onFocusTimeAdded(state, { sourceId: 'task-1', sourceTotalMinutes: 120 }); assert.equal(reward.state.xp, 30); const duplicate = onFocusTimeAdded(reward.state, { sourceId: 'task-1', sourceTotalMinutes: 120 }); assert.equal(duplicate.state.totalFocusMinutes, 60); assert.equal(duplicate.events.length, 0);
 });
 
 test('签到奖励随连续签到增加且同日只领一次', () => {
@@ -70,4 +70,23 @@ test('装备属性与先遣套装效果会进入最终战斗属性', () => {
 
 test('桌宠长时间断连会按间隔降低状态值', () => {
   const state = createInitialState('2026-09-10T08:00:00Z'); const result = onPetConnectionChecked(state, false, '2026-09-10T10:05:00Z', { disconnectDecayMinutes: 60, disconnectDecayAmount: 3 }); assert.equal(result.state.pet.condition, 94); assert.equal(result.events[0].payload.lost, 6);
+});
+
+test('统一事件总线按注册顺序异步分发并可取消监听', async () => {
+  const bus = new EventBus(); const received = []; const off = bus.on('TASK_COMPLETED', async ({ taskId }) => { received.push(taskId); }); await bus.emit('TASK_COMPLETED', { taskId: 'a' }); off(); await bus.emit('TASK_COMPLETED', { taskId: 'b' }); assert.deepEqual(received, ['a']);
+});
+
+test('四类每日委托受每日 XP 上限约束并恢复状态与增加好感', () => {
+  let state = createInitialState('2026-09-12T08:00:00'); state.pet.condition = 50;
+  state = onTaskCompleted(state, { taskId: 'p', highPriority: true }).state;
+  state = onTaskCompleted(state, { taskId: 'b' }).state;
+  state = onTaskCompleted(state, { taskId: 'c' }).state;
+  state = onFocusTimeAdded(state, { minutes: 60 }).state;
+  state = onDailyReviewCompleted(state).state;
+  assert.equal(state.today.xpEarned, 100); assert.equal(state.xp, 100); assert.equal(state.pet.condition, 74); assert.equal(state.pet.affinity.points, 8);
+});
+
+test('抚摸每日最多增加三点好感，陪伴模式禁止进入战斗', () => {
+  let state = createInitialState('2026-09-12T08:00:00'); for (let index = 0; index < 5; index += 1) state = onPetTouched(state, '2026-09-12T09:00:00').state; assert.equal(state.pet.affinity.points, 3);
+  state = setPlayMode(state, 'companion').state; assert.equal(state.mode, 'companion'); assert.equal(startBattle(state).events.length, 0);
 });

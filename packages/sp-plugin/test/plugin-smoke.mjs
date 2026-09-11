@@ -47,10 +47,10 @@ const completed = (id) => ({ taskId: id, task: { id, title: 'Smoke task', timeSp
 await hooks.get('taskComplete')(completed('task-1')); await hooks.get('taskComplete')(completed('task-1')); await hooks.get('taskComplete')(completed('task-2')); await hooks.get('taskComplete')(completed('task-3'));
 await hooks.get('taskUpdate')({ taskId: 'existing', task: { id: 'existing', title: 'Existing', timeSpent: 50 * 60_000, isDone: false }, changes: { timeSpent: 50 * 60_000 } });
 const response = await messageHandler({ type: 'getState' }); const state = response.state;
-assert.equal(state.totalTasksCompleted, 3); assert.equal(state.coins, 0); assert.equal(state.totalFocusMinutes, 50); assert.equal(state.xp, 70); assert.equal(state.adventure.activeBattle, null);
-const reward = await messageHandler({ type: 'claimMapReward', rewardIndex: 0 }); assert.equal(reward.state.coins, 4);
+assert.equal(state.totalTasksCompleted, 3); assert.equal(state.coins, 9); assert.equal(state.totalFocusMinutes, 50); assert.equal(state.xp, 30); assert.equal(state.adventure.activeBattle, null);
+const reward = await messageHandler({ type: 'claimMapReward', rewardIndex: 0 }); assert.equal(reward.state.coins, 13);
 const loadout = await messageHandler({ type: 'setEquippedSkills', skillIds: ['strike'] }); assert.equal(loadout.state.pet.equippedSkills.join(','), 'strike');
 const battle = await messageHandler({ type: 'startBattleAt', encounterIndex: 1 }); assert.equal(battle.state.adventure.activeBattle.phase, 'story_before'); assert.equal(battle.state.adventure.activeBattle.resource, 5);
 await messageHandler({ type: 'advanceStory', skip: true }); const skill = await messageHandler({ type: 'useSkill', skillId: 'strike' }); assert.equal(skill.state.adventure.activeBattle.turn, 1); assert.equal(skill.state.adventure.activeBattle.resource, 4); const ended = await messageHandler({ type: 'endTurn' }); assert.equal(ended.state.adventure.activeBattle.turn, 2); assert.equal(ended.state.adventure.activeBattle.resource, 5);
-assert.equal(JSON.parse(persisted.get('gamification-state-v1')).version, 3);
+assert.equal(JSON.parse(persisted.get('gamification-state-v1')).version, 4);
 console.log('SP plugin smoke test passed');

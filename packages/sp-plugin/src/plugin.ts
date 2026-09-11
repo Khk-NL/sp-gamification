@@ -1,5 +1,6 @@
 import {
   DEFAULT_CONTENT,
+  EventBus,
   addDebugCoins,
   addDebugXp,
   advanceBattleStory,
@@ -12,14 +13,17 @@ import {
   importState,
   normalizeContent,
   onDayChecked,
+  onDailyReviewCompleted,
   onFocusTimeAdded,
   onPetConnectionChecked,
+  onPetTouched,
   onTaskCompleted,
   purchaseItem,
   equipItem,
   resetState,
   seedFocusTime,
   setEquippedSkills,
+  setPlayMode,
   startBattle,
   startBattleAt,
   updatePetName,
@@ -32,6 +36,7 @@ import {
   type GameRules,
   type SPPetEvent,
   type SPPetState,
+  type PlayMode,
 } from '@sppet/core';
 
 const STATE_KEY = 'gamification-state-v1'; // Legacy key retained so v0.1/v0.2 upgrades keep their data.
@@ -53,7 +58,7 @@ interface PluginSettings extends GameRules {
 
 const defaultSettings = (): PluginSettings => ({
   language: 'zh', notifications: true, leaderboardSync: false, leaderboardNickname: '无名干员', leaderboardDeviceId: crypto.randomUUID(), remoteContent: false,
-  commissionTaskTarget: 3, commissionTaskXp: 30, commissionFocusTarget: 50, commissionFocusXp: 40, disconnectDecayMinutes: 60, disconnectDecayAmount: 2,
+  commissionTaskTarget: 3, commissionTaskXp: 30, commissionFocusTarget: 60, commissionFocusXp: 30, commissionPriorityXp: 20, commissionReviewXp: 20, dailyXpCap: 100, disconnectDecayMinutes: 60, disconnectDecayAmount: 2,
   petIdleLines: ['休息一下也没关系。', '下一项行动，准备好了吗？', '我会在这里等你。'],
   petClickLines: ['收到！', '今天也要稳步推进。', '别忘了领取签到补给。'],
 });
@@ -69,13 +74,24 @@ let pendingEvents: SPPetEvent[] = [];
 let operationQueue: Promise<unknown> = Promise.resolve();
 let lastLeaderboardSubmit = 0;
 
+interface CoreEvents {
+  TASK_COMPLETED: { taskId: string; highPriority: boolean; occurredAt?: Date | string | number };
+  FOCUS_SESSION_FINISHED: { sourceId: string; sourceTotalMinutes: number };
+  DAILY_REVIEW_COMPLETED: { occurredAt?: Date | string | number };
+  DAILY_CHECK_IN: Record<string, never>;
+  PET_CONNECTION_CHANGED: { connected: boolean };
+  PET_TOUCHED: Record<string, never>;
+  PLAY_MODE_CHANGED: { mode: PlayMode };
+}
+const coreEvents = new EventBus<CoreEvents>();
+
 const queue = <T>(operation: () => Promise<T>): Promise<T> => { const next = operationQueue.then(operation, operation); operationQueue = next.catch((error) => console.error('[sppet] operation failed', error)); return next; };
 const asInt = (value: unknown, fallback: number, min: number, max: number): number => { const parsed = Number(value); return Number.isFinite(parsed) ? Math.min(max, Math.max(min, Math.floor(parsed))) : fallback; };
 const lines = (value: unknown, fallback: string[]): string[] => Array.isArray(value) ? value.map(String).map((line) => line.trim()).filter(Boolean).slice(0, 20).map((line) => line.slice(0, 80)) : fallback;
 const hydrateSettings = (input: unknown): PluginSettings => {
   const fallback = defaultSettings(); if (!input || typeof input !== 'object') return fallback; const value = input as Partial<PluginSettings>;
   return { language: value.language === 'en' ? 'en' : 'zh', notifications: value.notifications !== false, leaderboardSync: value.leaderboardSync === true, leaderboardNickname: typeof value.leaderboardNickname === 'string' && value.leaderboardNickname.trim() ? value.leaderboardNickname.trim().slice(0, 20) : fallback.leaderboardNickname, leaderboardDeviceId: typeof value.leaderboardDeviceId === 'string' && value.leaderboardDeviceId ? value.leaderboardDeviceId : fallback.leaderboardDeviceId, remoteContent: value.remoteContent === true,
-    commissionTaskTarget: asInt(value.commissionTaskTarget, 3, 1, 20), commissionTaskXp: asInt(value.commissionTaskXp, 30, 1, 500), commissionFocusTarget: asInt(value.commissionFocusTarget, 50, 5, 600), commissionFocusXp: asInt(value.commissionFocusXp, 40, 1, 500), disconnectDecayMinutes: asInt(value.disconnectDecayMinutes, 60, 15, 1440), disconnectDecayAmount: asInt(value.disconnectDecayAmount, 2, 1, 20), petIdleLines: lines(value.petIdleLines, fallback.petIdleLines), petClickLines: lines(value.petClickLines, fallback.petClickLines) };
+    commissionTaskTarget: asInt(value.commissionTaskTarget, 3, 1, 20), commissionTaskXp: asInt(value.commissionTaskXp, 30, 1, 500), commissionFocusTarget: asInt(value.commissionFocusTarget, 60, 5, 600), commissionFocusXp: asInt(value.commissionFocusXp, 30, 1, 500), commissionPriorityXp: asInt(value.commissionPriorityXp, 20, 1, 500), commissionReviewXp: asInt(value.commissionReviewXp, 20, 1, 500), dailyXpCap: asInt(value.dailyXpCap, 100, 20, 500), disconnectDecayMinutes: asInt(value.disconnectDecayMinutes, 60, 15, 1440), disconnectDecayAmount: asInt(value.disconnectDecayAmount, 2, 1, 20), petIdleLines: lines(value.petIdleLines, fallback.petIdleLines), petClickLines: lines(value.petClickLines, fallback.petClickLines) };
 };
 
 const loadSettings = async (): Promise<PluginSettings> => { if (settings) return settings; const raw = await PluginAPI.loadSyncedData(SETTINGS_KEY); try { settings = hydrateSettings(raw ? JSON.parse(raw) : null); } catch { settings = defaultSettings(); } return settings; };
@@ -84,13 +100,13 @@ const loadState = async (): Promise<SPPetState> => { if (state) return state; co
 
 const scheduleReconnect = (): void => { if (reconnectTimer) return; reconnectTimer = setTimeout(() => { reconnectTimer = null; connectBridge(); }, 2000); };
 const sendBridgeSnapshot = (): boolean => { if (!state || socket?.readyState !== WebSocket.OPEN) return false; socket.send(JSON.stringify({ type: 'SYNC', state, events: pendingEvents, petSettings: settings ? { idleLines: settings.petIdleLines, clickLines: settings.petClickLines } : undefined, sentAt: new Date().toISOString() })); return true; };
-const registerConnection = (connected: boolean): void => { void runEngine((current, cfg) => onPetConnectionChecked(current, connected, undefined, cfg)); };
+const registerConnection = (connected: boolean): void => { void coreEvents.emit('PET_CONNECTION_CHANGED', { connected }); };
 const connectBridge = (): void => {
   if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) return; bridgeStatus = 'connecting';
   try {
     socket = new WebSocket(PET_BRIDGE_URL);
     socket.addEventListener('open', () => { bridgeStatus = 'connected'; registerConnection(true); sendBridgeSnapshot(); });
-    socket.addEventListener('message', (message) => { try { const payload = JSON.parse(String(message.data)); if (payload.type === 'ACK') { bridgeLastAck = typeof payload.receivedAt === 'string' ? payload.receivedAt : new Date().toISOString(); const received = new Set(Array.isArray(payload.eventIds) ? payload.eventIds : []); pendingEvents = pendingEvents.filter((entry) => !received.has(entry.id)); } } catch { /* Local malformed frames are ignored. */ } });
+    socket.addEventListener('message', (message) => { try { const payload = JSON.parse(String(message.data)); if (payload.type === 'ACK') { bridgeLastAck = typeof payload.receivedAt === 'string' ? payload.receivedAt : new Date().toISOString(); const received = new Set(Array.isArray(payload.eventIds) ? payload.eventIds : []); pendingEvents = pendingEvents.filter((entry) => !received.has(entry.id)); } else if (payload.type === 'PET_TOUCHED') void coreEvents.emit('PET_TOUCHED', {}); } catch { /* Local malformed frames are ignored. */ } });
     socket.addEventListener('close', () => { const wasConnected = bridgeStatus === 'connected'; bridgeStatus = 'disconnected'; socket = null; if (wasConnected) registerConnection(false); scheduleReconnect(); });
     socket.addEventListener('error', () => { bridgeStatus = 'disconnected'; });
   } catch { bridgeStatus = 'disconnected'; scheduleReconnect(); }
@@ -109,11 +125,19 @@ const persist = async (result: EngineResult): Promise<SPPetState> => { state = r
 const runEngine = (action: (current: SPPetState, cfg: PluginSettings, gameContent: GameContent) => EngineResult): Promise<SPPetState> => queue(async () => persist(action(await loadState(), await loadSettings(), await loadContent())));
 const seedTask = (task: SpTask | null | undefined): Promise<SPPetState> => !task?.id ? loadState() : runEngine((current) => seedFocusTime(current, task.id, task.timeSpent / 60_000));
 
-PluginAPI.registerHook(PluginAPI.Hooks.TASK_COMPLETE, async (payload) => { const task = payload?.task as SpTask | undefined; await runEngine((current, cfg) => onTaskCompleted(current, { taskId: payload?.taskId ?? task?.id ?? '', occurredAt: payload?.task?.doneOn ?? Date.now(), rules: cfg })); });
-PluginAPI.registerHook(PluginAPI.Hooks.TASK_UPDATE, async (payload) => { const task = payload?.task as SpTask | undefined; if (!task?.id || !Object.prototype.hasOwnProperty.call(payload?.changes ?? {}, 'timeSpent')) return; await runEngine((current, cfg) => onFocusTimeAdded(current, { sourceId: task.id, sourceTotalMinutes: task.timeSpent / 60_000, rules: cfg })); });
+coreEvents.on('TASK_COMPLETED', async (payload) => { await runEngine((current, cfg) => onTaskCompleted(current, { ...payload, rules: cfg })); });
+coreEvents.on('FOCUS_SESSION_FINISHED', async (payload) => { await runEngine((current, cfg) => onFocusTimeAdded(current, { ...payload, rules: cfg })); });
+coreEvents.on('DAILY_REVIEW_COMPLETED', async (payload) => { await runEngine((current, cfg) => onDailyReviewCompleted(current, payload.occurredAt, cfg)); });
+coreEvents.on('DAILY_CHECK_IN', async () => { await runEngine((current) => checkIn(current)); });
+coreEvents.on('PET_CONNECTION_CHANGED', async (payload) => { await runEngine((current, cfg) => onPetConnectionChecked(current, payload.connected, undefined, cfg)); });
+coreEvents.on('PET_TOUCHED', async () => { await runEngine((current) => onPetTouched(current)); });
+coreEvents.on('PLAY_MODE_CHANGED', async (payload) => { await runEngine((current) => setPlayMode(current, payload.mode)); });
+
+PluginAPI.registerHook(PluginAPI.Hooks.TASK_COMPLETE, async (payload) => { const task = payload?.task as SpTask | undefined; const tags = task?.resolvedTagNames ?? []; await coreEvents.emit('TASK_COMPLETED', { taskId: payload?.taskId ?? task?.id ?? '', highPriority: tags.some((tag) => /^(high|high priority|高优先级|重要)$/i.test(tag.trim())), occurredAt: payload?.task?.doneOn ?? Date.now() }); });
+PluginAPI.registerHook(PluginAPI.Hooks.TASK_UPDATE, async (payload) => { const task = payload?.task as SpTask | undefined; if (!task?.id || !Object.prototype.hasOwnProperty.call(payload?.changes ?? {}, 'timeSpent')) return; await coreEvents.emit('FOCUS_SESSION_FINISHED', { sourceId: task.id, sourceTotalMinutes: task.timeSpent / 60_000 }); });
 PluginAPI.registerHook(PluginAPI.Hooks.TASK_CREATED, async (payload) => { await seedTask(payload?.task); });
 PluginAPI.registerHook(PluginAPI.Hooks.CURRENT_TASK_CHANGE, async (payload) => { await seedTask(payload?.previous); await seedTask(payload?.current); });
-PluginAPI.registerHook(PluginAPI.Hooks.FINISH_DAY, async (payload) => { await runEngine((current, cfg) => onDayChecked(current, payload?.date ?? Date.now(), cfg)); });
+PluginAPI.registerHook(PluginAPI.Hooks.FINISH_DAY, async (payload) => { await coreEvents.emit('DAILY_REVIEW_COMPLETED', { occurredAt: payload?.date ?? Date.now() }); });
 PluginAPI.registerHook(PluginAPI.Hooks.PERSISTED_DATA_CHANGED, async () => { const raw = await PluginAPI.loadSyncedData(STATE_KEY); if (!raw) return; try { const incoming = hydrateState(JSON.parse(raw), undefined, await loadSettings()); if (!state || incoming.updatedAt > state.updatedAt) { state = incoming; bridgePublish([]); } } catch { /* Keep last valid state. */ } });
 PluginAPI.registerHook(PluginAPI.Hooks.LANGUAGE_CHANGE, () => undefined);
 
@@ -125,7 +149,9 @@ PluginAPI.onMessage?.(async (message: unknown) => {
   try {
     switch (data.type) {
       case 'getState': return queue(responseState);
-      case 'checkIn': await runEngine((current) => checkIn(current)); break;
+      case 'checkIn': await coreEvents.emit('DAILY_CHECK_IN', {}); break;
+      case 'touchPet': await coreEvents.emit('PET_TOUCHED', {}); break;
+      case 'setPlayMode': await coreEvents.emit('PLAY_MODE_CHANGED', { mode: data.mode === 'companion' ? 'companion' : 'adventure' }); break;
       case 'startBattle': await runEngine((current, _cfg, gameContent) => startBattle(current, gameContent)); break;
       case 'startBattleAt': await runEngine((current, _cfg, gameContent) => startBattleAt(current, Number(data.encounterIndex), gameContent)); break;
       case 'claimMapReward': await runEngine((current, _cfg, gameContent) => claimMapReward(current, Number(data.rewardIndex), gameContent)); break;
