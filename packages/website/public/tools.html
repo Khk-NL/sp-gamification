@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SPPet // 状态与剧情</title><link rel="stylesheet" href="./site.css"></head>
+<body>
+  <div class="noise"></div>
+  <header class="topbar"><a class="brand" href="./"><span class="mark">SP</span><span><strong>SPPET</strong><small>DATA OPERATIONS TERMINAL</small></span></a><nav><a href="./">排行榜</a><a class="active" href="./tools.html">状态与剧情</a><a href="./developer.html">开发者终端</a><a href="./login.html">登录</a></nav></header>
+  <main>
+    <section class="hero"><div><p class="eyebrow">// LOCAL DATA TOOL</p><h1>状态与剧情</h1><p>状态文件只在当前浏览器中读取和生成，不会上传。管理员登录后可把战前、战后剧情保存至本地内容数据库。</p></div><b class="hero-code">02</b></section>
+    <section class="grid">
+      <article class="panel"><header><h2>STATE IMPORT</h2><small>LOCAL ONLY</small></header><div class="actions"><button id="state-open" class="primary">导入状态 JSON</button><button id="state-export">重新导出</button><input id="state-file" type="file" accept="application/json" hidden></div><p id="state-message" class="message"></p><pre id="state-summary">尚未载入状态。</pre></article>
+      <article class="panel"><header><h2>STATE JSON</h2><small>EDITABLE COPY</small></header><textarea id="state-json" rows="18" spellcheck="false" placeholder="导入后会显示格式化 JSON"></textarea></article>
+    </section>
+    <article class="panel"><header><h2>STORY EDITOR</h2><small>PRE / POST BATTLE DIALOGUE</small></header><div id="auth-status" class="auth-status">正在确认登录状态…</div><div class="grid"><div class="field"><label>章节</label><select id="chapter"></select></div><div class="field"><label>敌人 / 小 Boss</label><select id="enemy"></select></div></div><div class="grid"><div class="field"><label>战前剧情（每行一句）</label><textarea id="before" rows="8"></textarea></div><div class="field"><label>战后剧情（每行一句）</label><textarea id="after" rows="8"></textarea></div></div><div class="actions"><button id="story-apply">应用到当前副本</button><button id="content-download">下载 content.json</button><button id="content-save" class="primary">保存到服务器</button></div><p id="story-message" class="message"></p></article>
+  </main>
+  <footer><span>SPPET // LOCAL-FIRST DATA TOOLS</span><span>STATE FILES NEVER LEAVE THIS PAGE</span></footer>
+  <script src="./tools.js"></script>
+</body>
+</html>

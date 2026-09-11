@@ -1,12 +1,12 @@
 {
   "name": "sppet",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.19.0",
   "scripts": {
     "build": "pnpm -r --if-present build",
-    "test": "pnpm --filter @sppet/core test && pnpm --filter @sppet/sp-plugin test",
+    "test": "pnpm --filter @sppet/core test && pnpm --filter @sppet/sp-plugin test && pnpm --filter @sppet/website test",
     "package:plugin": "pnpm --filter @sppet/sp-plugin package",
     "package:pet": "pnpm --filter @sppet/desktop-pet package:win",
     "package:all": "pnpm package:plugin && pnpm package:pet",

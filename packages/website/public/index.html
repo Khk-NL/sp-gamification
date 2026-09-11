@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SPPet // 行动排行</title>
+  <link rel="stylesheet" href="./site.css">
+</head>
+<body>
+  <div class="noise"></div>
+  <header class="topbar">
+    <a class="brand" href="./"><span class="mark">SP</span><span><strong>SPPET</strong><small>STUDY OPERATIONS NETWORK</small></span></a>
+    <nav><a class="active" href="./">排行榜</a><a href="./tools.html">状态与剧情</a><a href="./developer.html">开发者终端</a><a href="./login.html">登录</a></nav>
+  </header>
+  <main>
+    <section class="hero"><div><p class="eyebrow">// PUBLIC OPERATOR RECORDS</p><h1>行动排行</h1><p>仅展示用户主动同步的昵称和成长统计。任务标题、备注、桌宠台词与本地状态文件不会上传。</p></div><b class="hero-code">01</b></section>
+    <section class="panel"><header><h2>OPERATOR RANKING</h2><small id="updated">WAITING FOR DATA</small></header><div id="ranking" class="empty">正在连接 SPPet 数据节点…</div></section>
+  </main>
+  <footer><span>SPPET // UNOFFICIAL PRODUCTIVITY PROJECT</span><span>NO TASK CONTENT IS UPLOADED</span></footer>
+  <script>
+    fetch('./api/leaderboard').then((response) => response.json()).then((data) => {
+      const root = document.querySelector('#ranking');
+      const entries = data.entries || [];
+      document.querySelector('#updated').textContent = `UPDATED // ${new Date(data.generatedAt).toLocaleString('zh-CN')}`;
+      root.className = '';
+      root.replaceChildren();
+      if (!entries.length) { root.className = 'empty'; root.textContent = '暂无公开记录'; return; }
+      entries.forEach((entry, index) => {
+        const row = document.createElement('div'); row.className = 'rank';
+        const number = document.createElement('b'); number.textContent = `#${String(index + 1).padStart(2, '0')}`;
+        const name = document.createElement('strong'); name.textContent = entry.nickname || '无名干员';
+        const level = document.createElement('em'); level.textContent = `Lv.${entry.level || 1}`;
+        const meta = document.createElement('small'); meta.textContent = `BATTLE ${entry.totalBattlesWon || 0} // TASK ${entry.totalTasksCompleted || 0} // STREAK ${entry.streak || 0}`;
+        row.append(number, name, level, meta); root.append(row);
+      });
+    }).catch(() => { document.querySelector('#ranking').textContent = '数据节点暂时离线'; document.querySelector('#updated').textContent = 'OFFLINE'; });
+  </script>
+</body>
+</html>

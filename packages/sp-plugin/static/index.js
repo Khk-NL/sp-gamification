@@ -10,9 +10,9 @@ const copy = {
 
 function sendMessage(type, payload = {}) {
   return new Promise((resolve, reject) => {
-    const messageId = crypto.randomUUID();
+    const messageId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
     const timeout = setTimeout(() => { window.removeEventListener('message', handler); reject(new Error('插件响应超时 / Plugin timeout')); }, 8000);
-    const handler = (event) => { if (event.source !== window.parent || event.data?.type !== 'PLUGIN_MESSAGE_RESPONSE' || event.data?.messageId !== messageId) return; clearTimeout(timeout); window.removeEventListener('message', handler); resolve(event.data.result); };
+    const handler = (event) => { if (event.data?.type !== 'PLUGIN_MESSAGE_RESPONSE' || event.data?.messageId !== messageId) return; clearTimeout(timeout); window.removeEventListener('message', handler); resolve(event.data.result); };
     window.addEventListener('message', handler);
     window.parent.postMessage({ type: 'PLUGIN_MESSAGE', message: { type, ...payload }, messageId }, '*');
   });
@@ -84,7 +84,7 @@ function renderForms() {
 
 function renderConnection() { const connected = model.bridge.status === 'connected'; $('bridge').className = `connection ${connected ? 'connected' : ''}`; $('bridge').textContent = connected ? `● CONNECTED // ${model.bridge.url} // ACK ${model.bridge.lastAck || '--'}` : `● DISCONNECTED // ${model.bridge.url}`; }
 function render(response) { if (!response?.state) return; model = response; applyLanguage(); renderOverview(); renderGrowth(); renderBattle(); renderConnection(); renderForms(); }
-async function refresh() { try { const response = await sendMessage('getState'); if (!response?.ok) throw new Error(response?.error || '读取失败'); render(response); } catch (error) { if (model) $('bridge').textContent = error.message || String(error); } }
+async function refresh() { try { const response = await sendMessage('getState'); if (!response?.ok) throw new Error(response?.error || '读取失败'); render(response); } catch (error) { $('bridge').textContent = `● UI ERROR // ${error.message || String(error)}`; } }
 async function act(type, payload = {}) { const response = await sendMessage(type, payload); if (!response?.ok) throw new Error(response?.error || '操作失败'); render(response); return response; }
 
 document.querySelector('.bottom-nav').addEventListener('click', async (event) => { const button = event.target.closest('[data-tab]'); if (!button) return; document.querySelectorAll('.bottom-nav button').forEach((entry) => entry.classList.toggle('active', entry === button)); document.querySelectorAll('.page').forEach((page) => page.classList.toggle('active', page.dataset.page === button.dataset.tab)); if (button.dataset.tab === 'adventure' && !model?.state.adventure.activeBattle) await act('startBattle').catch(() => undefined); });
@@ -112,4 +112,4 @@ $('import-file').addEventListener('change', async (event) => { const file = even
 $('refresh-content').addEventListener('click', async () => { try { await act('refreshContent'); $('settings-status').textContent = '剧情与数值已更新。'; } catch (error) { $('settings-status').textContent = `更新失败：${error.message}`; } });
 document.querySelector('.debug .action-row').addEventListener('click', async (event) => { const button = event.target.closest('[data-action]'); if (!button) return; if (button.dataset.action === 'resetState' && !confirm('确定重置全部状态吗？')) return; await act(button.dataset.action); });
 setInterval(() => { $('clock').textContent = new Date().toLocaleTimeString(language() === 'en' ? 'en-GB' : 'zh-CN', { hour12: false }); }, 1000);
-PluginAPI.registerHook(PluginAPI.Hooks.PERSISTED_DATA_CHANGED, refresh); PluginAPI.registerHook(PluginAPI.Hooks.LANGUAGE_CHANGE, refresh); refresh(); setInterval(refresh, 10000);
+refresh(); setInterval(refresh, 10000);

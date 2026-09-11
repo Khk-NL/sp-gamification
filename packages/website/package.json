@@ -1,0 +1,13 @@
+{
+  "name": "@sppet/website",
+  "version": "0.3.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/server.test.mjs"
+  },
+  "engines": {
+    "node": ">=22.5"
+  }
+}

@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SPPet // 开发者终端</title><link rel="stylesheet" href="./site.css"></head>
+<body>
+  <div class="noise"></div>
+  <header class="topbar"><a class="brand" href="./"><span class="mark">SP</span><span><strong>SPPET</strong><small>DEVELOPER CONTROL TERMINAL</small></span></a><nav><a href="./">排行榜</a><a href="./tools.html">状态与剧情</a><a class="active" href="./developer.html">开发者终端</a><a href="./login.html">登录</a></nav></header>
+  <main>
+    <section class="hero"><div><p class="eyebrow">// AUTHORIZED PERSONNEL ONLY</p><h1>数值终端</h1><p>增加道具、技能和敌人，或调整价格、属性、伤害、抗性、行动意图与奖励。发布内容需要管理员登录。</p></div><b class="hero-code">03</b></section>
+    <article class="panel"><div id="auth-status" class="auth-status">正在确认登录状态…</div><div class="tabs"><button class="active" data-view="items">ITEMS</button><button data-view="skills">SKILLS</button><button data-view="enemies">ENEMIES</button><button data-view="raw">RAW JSON</button></div><div id="editor" class="editor-list"></div><textarea id="raw" rows="28" spellcheck="false" hidden></textarea><div class="actions"><button id="add">＋ 新增</button><button id="apply-raw">应用 JSON</button><button id="download">下载 content.json</button></div></article>
+    <article class="panel"><header><h2>PUBLISH</h2><small>SESSION AUTHENTICATION</small></header><button id="save" class="primary">保存并发布内容</button><p id="message" class="message"></p></article>
+  </main>
+  <footer><span>SPPET // CONTENT MANAGEMENT</span><span>CHANGES ARE LIVE AFTER PLUGIN REFRESH</span></footer>
+  <script src="./developer.js"></script>
+</body>
+</html>

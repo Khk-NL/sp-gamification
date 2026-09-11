@@ -1,0 +1,76 @@
+:root { --accent: #77e4ff; --cyan: #169fc5; --ink: #142431; color: #142431; }
+
+.drag-grip { color: rgba(29, 79, 103, .28); }
+.desktop:hover .drag-grip { color: rgba(29, 79, 103, .7); }
+
+.bubble {
+  color: #142431;
+  background: rgba(248, 252, 254, .97);
+  border-color: #8faeba;
+  border-left-color: var(--accent);
+  box-shadow: 6px 6px rgba(28, 72, 92, .16);
+}
+
+.bubble::before {
+  content: "SPPET // FIELD UNIT";
+  display: block;
+  margin-bottom: 4px;
+  color: #6c818c;
+  font: 7px monospace;
+  letter-spacing: .13em;
+}
+
+.bubble::after { background: #f8fcfe; border-color: #8faeba; }
+.bubble strong { color: #0f8fb6; }
+.bubble em { color: #1785a5; }
+
+.pet { filter: drop-shadow(8px 9px rgba(28, 72, 92, .2)); }
+.head,
+.body { background: #f7fbfd; border-color: #142431; }
+.ear { background: #294655; border-color: #142431; }
+.fringe { background: #3b5968; }
+.eye { background: #142431; }
+.mouth { border-color: #142431; }
+.body i { background: var(--accent); }
+.shadow { background: rgba(26, 72, 94, .16); }
+
+.context-menu {
+  background: #f8fcfe;
+  border-color: #92acb8;
+  border-left-color: var(--accent);
+  box-shadow: 6px 6px rgba(28, 72, 92, .15);
+}
+
+.context-menu button {
+  color: #142431;
+  border-color: #d0dde3;
+}
+
+.context-menu button:hover { color: #0c8eb5; background: #e6f7fc; }
+
+.settings-panel {
+  color: #142431;
+  background:
+    linear-gradient(112deg, #152936 0 25%, transparent 25%),
+    repeating-linear-gradient(90deg, transparent 0 34px, rgba(23, 87, 114, .05) 35px),
+    #f6fafc;
+  border-color: #8faab7;
+  border-left-color: var(--accent);
+  box-shadow: 8px 8px rgba(28, 72, 92, .16);
+}
+
+.settings-panel header {
+  color: #142431;
+  border-color: #142431;
+  background: rgba(248, 252, 254, .91);
+  padding: 8px;
+}
+
+.settings-panel header small,
+.settings-panel label { color: #617681; }
+.settings-panel header button { color: #142431; }
+.settings-panel button { background: #edf4f7; color: #142431; border-color: #9db4bf; }
+.settings-panel button:hover { color: #0b88ad; border-color: #159dc3; }
+.settings-panel .check { color: #142431; }
+.connection { background: #f8fbfd; }
+.path { color: #647984; }

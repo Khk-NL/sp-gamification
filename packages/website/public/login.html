@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SPPet // 身份验证</title><link rel="stylesheet" href="./site.css"></head>
+<body>
+  <div class="noise"></div>
+  <header class="topbar"><a class="brand" href="./"><span class="mark">SP</span><span><strong>SPPET</strong><small>IDENTITY AUTHORIZATION</small></span></a><nav><a href="./">排行榜</a><a href="./tools.html">状态与剧情</a><a href="./developer.html">开发者终端</a><a class="active" href="./login.html">登录</a></nav></header>
+  <main>
+    <section class="auth-layout">
+      <div class="auth-intro"><p class="eyebrow">// PERSONNEL VERIFICATION</p><h1>身份<br>验证</h1><p>账号仅保存在当前 SPPet 服务器的 SQLite 数据库中。密码以随机盐和 scrypt 派生结果保存。</p></div>
+      <div class="auth-card"><h2 id="auth-title">登录终端</h2><p id="auth-mode" class="mode">LOGIN // SESSION 7 DAYS</p><div id="current-user" class="auth-status" hidden></div><form id="auth-form"><label class="field"><span>用户名</span><input id="username" autocomplete="username" required minlength="2" maxlength="20"></label><label class="field"><span>密码</span><input id="password" type="password" autocomplete="current-password" required minlength="8" maxlength="100"></label><button id="submit" class="primary" type="submit">登录</button></form><p id="auth-message" class="message"></p><p class="auth-switch"><span id="switch-copy">还没有账号？</span><button id="switch-mode" type="button">创建账号</button></p><button id="logout" type="button" hidden>退出登录</button></div>
+    </section>
+  </main>
+  <footer><span>SPPET // LOCAL SQLITE IDENTITY</span><span>HTTPONLY SESSION COOKIE</span></footer>
+  <script src="./login.js"></script>
+</body>
+</html>

@@ -2,7 +2,7 @@
 
 SPPet 是一个由 Super Productivity 驱动的学习养成与桌宠系统。它不修改 SP Core，通过官方 Plugin API 读取任务和专注变化，再把委托、成长、回合制冒险和桌宠状态交给独立游戏引擎处理。
 
-界面采用原创的黑白工业终端、斜切卡片、黄色/青色信号色设计；只参考同类战术终端的信息层级，不包含《明日方舟》官方角色、Logo、字体或美术资源。
+界面采用深色档案区与浅色展示区的斜向分割、编号轨道、超大档案编号、网格/准星、斜切卡片和蓝色信号线；只参考同类战术终端的信息层级，不包含《明日方舟》官方角色、Logo、字体或美术资源。
 
 ## 项目结构
 
@@ -18,12 +18,13 @@ sppet/
 │  ├─ sp-plugin/
 │  │  ├─ src/             # SP hooks、存储、桌宠桥接、网站连接
 │  │  └─ static/          # 独立 HTML / CSS / JS 面板
-│  └─ desktop-pet/        # Electron 透明桌宠与 localhost 服务
+│  ├─ desktop-pet/        # Electron 透明桌宠与 localhost 服务
+│  └─ website/            # 排行榜、编辑器、SQLite 登录与本地启动脚本
 ├─ CHANGELOG.md
 └─ README.md
 ```
 
-网站、Nginx 和管理端部署文件单独交付，不进入此仓库。
+网站与 Nginx 配置从 v0.3.1 起纳入仓库，同时同步交付到 `D:\temp\SPPet\deploy\website`。
 
 ## 安装插件
 
@@ -35,7 +36,7 @@ pnpm package:plugin
 生成：
 
 ```text
-packages\sp-plugin\release\SPPet-SP-v0.3.0.zip
+packages\sp-plugin\release\SPPet-SP-v0.3.1.zip
 ```
 
 在 Super Productivity“设置 → 插件 → 选择插件文件”中导入。最低支持 SP 18.21.2。
@@ -56,7 +57,7 @@ pnpm dev:pet
 pnpm package:pet
 ```
 
-解压 `SPPet-v0.3.0-win-x64.zip`，运行 `SPPet.exe`。桌宠默认只显示角色：
+解压 `SPPet-v0.3.1-win-x64.zip`，运行 `SPPet.exe`。桌宠默认只显示角色：
 
 - 悬停：显示 Lv、XP、状态值、streak、金币。
 - 左键：播放用户设置的互动台词。
@@ -109,15 +110,17 @@ SP Plugin → ws://127.0.0.1:47821 → SPPet → JSON
 
 ## 网站部署
 
-部署包位于交付目录 `deploy\website`，包括：
+源码位于 `packages\website`，可双击 `start-local.bat` 启动；同步部署包位于 `D:\temp\SPPet\deploy\website`，包括：
 
 - `/`：公开排行榜。
 - `/tools.html`：状态 JSON 本地导入/导出、战前/战后剧情编辑。
 - `/developer.html`：道具、技能、怪物、抗性、行动意图和奖励数值编辑。
-- `server.mjs`：无第三方依赖的 Node 服务。
+- `/login.html`：SQLite 本地账号注册、登录和会话管理。
+- `server.mjs`：无第三方依赖的 Node 服务；需要 Node.js 22.5 或更高版本。
+- `start-local.bat`：配置本地注册环境并打开登录页。
 - `nginx-sppet.conf` / `nginx-location-snippet.conf`：反向代理配置。
 
-服务器必须通过环境变量设置 `SPPET_ADMIN_KEY`，管理页面才能发布内容。插件从 `https://sppet.scsldr.cn/api/content` 获取内容，离线时继续使用内置目录。
+本地首次注册的账号自动成为管理员；公网部署也可以用 `SPPET_ADMIN_USER`、`SPPET_ADMIN_PASSWORD` 预置管理员。账号和会话存入 `data\sppet.db`。旧的 `SPPET_ADMIN_KEY` 发布方式仍兼容。插件从 `https://sppet.scsldr.cn/api/content` 获取内容，离线时继续使用内置目录。
 
 ## 集中验证
 
