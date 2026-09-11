@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, nativeImage, screen, Tray, Menu, dialog } = require('electron');
+const { app, BrowserWindow, desktopCapturer, ipcMain, nativeImage, screen, Tray, Menu, dialog } = require('electron');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const http = require('node:http');
@@ -6,6 +6,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { AssetManager } = require('./asset-manager.cjs');
 const { AiService } = require('./ai-service.cjs');
+const { SystemAwareness } = require('./system-awareness.cjs');
 
 const appData = process.env.APPDATA || os.homedir();
 const DATA_DIRECTORY = process.env.SPPET_DATA_DIR || process.env.SP_GAMIFICATION_DATA_DIR || path.join(appData, 'SPPet');
@@ -23,6 +24,7 @@ let bridgeConnected = false, bridgeLastSync = null, lastEventId = null, initiali
 const bridgeSockets = new Set();
 const assetManager = new AssetManager(path.join(__dirname, '..', 'assets', 'characters'), CHARACTERS_DIRECTORY);
 const aiService = new AiService(DATA_DIRECTORY);
+const systemAwareness = new SystemAwareness(DATA_DIRECTORY);
 
 const readJson = (file, fallback) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; } };
 const writeJsonAtomic = (file, value) => { const temp = `${file}.${process.pid}.tmp`; fs.writeFileSync(temp, `${JSON.stringify(value, null, 2)}\n`, 'utf8'); fs.renameSync(temp, file); };
@@ -45,7 +47,7 @@ const publishSnapshot = () => {
   if (!initialized) { const cursor = readJson(CURSOR_FILE, { lastEventId: null }); lastEventId = typeof cursor.lastEventId === 'string' ? cursor.lastEventId : events.at(-1)?.id ?? null; initialized = true; }
   let cursorIndex = lastEventId ? events.findIndex((entry) => entry.id === lastEventId) : -1; if (lastEventId && cursorIndex < 0) cursorIndex = events.length - 1; const unseen = cursorIndex >= 0 ? events.slice(cursorIndex + 1) : lastEventId ? [] : events;
   if (unseen.length) { lastEventId = unseen.at(-1).id; writeJsonAtomic(CURSOR_FILE, { lastEventId, updatedAt: new Date().toISOString() }); }
-  windowRef.webContents.send('sppet-snapshot', { state, events: unseen, dataDirectory: DATA_DIRECTORY, bridge: { connected: bridgeConnected, port: BRIDGE_PORT, lastSync: bridgeLastSync }, skin: currentSkin(), character: currentCharacter(), characters: assetManager.list(), petSettings: readJson(PET_SETTINGS_FILE, { size: 1, alwaysOnTop: true, gravityEnabled: true, autoWalk: false }), petProfile: readJson(PET_PROFILE_FILE, { idleLines: [], clickLines: [] }), ai: { ...aiService.snapshot(), systemPrompt: aiService.systemPrompt() } });
+  windowRef.webContents.send('sppet-snapshot', { state, events: unseen, dataDirectory: DATA_DIRECTORY, bridge: { connected: bridgeConnected, port: BRIDGE_PORT, lastSync: bridgeLastSync }, skin: currentSkin(), character: currentCharacter(), characters: assetManager.list(), petSettings: readJson(PET_SETTINGS_FILE, { size: 1, alwaysOnTop: true, gravityEnabled: true, autoWalk: false }), petProfile: readJson(PET_PROFILE_FILE, { idleLines: [], clickLines: [] }), ai: { ...aiService.snapshot(), systemPrompt: aiService.systemPrompt() }, awareness: systemAwareness.snapshot() });
 };
 const scheduleRead = () => { clearTimeout(readTimer); readTimer = setTimeout(publishSnapshot, 90); };
 
@@ -105,4 +107,7 @@ ipcMain.handle('ai-set-key', async (event, value) => { if (!fromPetWindow(event)
 ipcMain.handle('ai-chat', async (event, value) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); const entry = await aiService.chat(value); publishSnapshot(); return entry; });
 ipcMain.handle('ai-delete-history', async (event, id) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); const removed = aiService.deleteHistory(String(id)); publishSnapshot(); return removed; });
 ipcMain.handle('ai-clear-history', async (event) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); aiService.clearHistory(); publishSnapshot(); return true; });
+ipcMain.handle('awareness-update-settings', async (event, changes) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); const value = systemAwareness.updateSettings(changes || {}); publishSnapshot(); return value; });
+ipcMain.handle('awareness-read-window', async (event) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); const value = await systemAwareness.readCurrentWindow(); publishSnapshot(); return value; });
+ipcMain.handle('awareness-vision', async (event) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); if (!systemAwareness.settings().visionEnabled) throw new Error('请先明确启用主动屏幕分析权限'); const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()); const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 1280, height: 720 } }); const source = sources.find((entry) => String(entry.display_id) === String(display.id)) || sources[0]; if (!source || source.thumbnail.isEmpty()) throw new Error('无法获取当前屏幕截图'); const imageDataUrl = `data:image/jpeg;base64,${source.thumbnail.toJPEG(60).toString('base64')}`; const entry = await aiService.vision(imageDataUrl); publishSnapshot(); return entry; });
 app.on('before-quit', () => { watcher?.close(); characterWatcher?.close(); bridgeServer?.close(); clearTimeout(readTimer); clearInterval(fallTimer); clearInterval(walkTimer); }); app.on('window-all-closed', () => {});

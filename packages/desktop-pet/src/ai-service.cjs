@@ -47,7 +47,17 @@ class AiService {
     const settings = this.settings(), profile = this.profile();
     return [`你是 ${profile.petName}，${settings.worldview}`, `性格：${settings.personality}`, `说话方式：${settings.speakingStyle}`, `你称呼用户为“${profile.petCallUser}”，用户称呼你为“${profile.userCallPet}”。`, `关系：${settings.relationship}；档案关系：${profile.relationship}`, `用户昵称：${profile.nickname || '未填写'}；生日：${profile.birthday || '未填写'}`, `自定义档案：${JSON.stringify(profile.customFields)}`, '尊重隐私，不声称看到了未提供的屏幕、文件或个人数据。'].join('\n');
   }
-  validateEndpoint(value) { const url = new URL(value); if (url.protocol === 'https:') return url; if (url.protocol === 'http:' && ['127.0.0.1', 'localhost', '::1'].includes(url.hostname)) return url; throw new Error('AI 接口必须使用 HTTPS，或使用本机 localhost HTTP'); }
+  validateEndpoint(value) { const url = new URL(value); if (url.protocol === 'https:') return url; if (url.protocol === 'http:' && ['127.0.0.1', 'localhost', '::1', '[::1]'].includes(url.hostname)) return url; throw new Error('AI 接口必须使用 HTTPS，或使用本机 localhost HTTP'); }
+
+  async completion(settings, messages) {
+    const endpoint = this.validateEndpoint(settings.endpoint);
+    const response = await this.request(endpoint, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${this.sessionApiKey}` }, body: JSON.stringify({ model: settings.model, messages }) });
+    if (!response.ok) throw new Error(`AI 请求失败：HTTP ${response.status}`);
+    const body = await response.json(), answer = text(body?.choices?.[0]?.message?.content, '', 8000);
+    if (!answer) throw new Error('AI 返回内容为空');
+    return answer;
+  }
+  record(user, assistant, source = 'chat') { const entry = { id: crypto.randomUUID(), timestamp: new Date().toISOString(), summary: assistant.slice(0, 80), user, assistant, source }; writeJsonAtomic(this.historyFile, { version: 1, entries: [...this.history(), entry].slice(-500) }); return entry; }
 
   async chat(userText) {
     const settings = this.settings(), prompt = text(userText, '', 4000);
@@ -55,16 +65,21 @@ class AiService {
     if (!prompt) throw new Error('消息不能为空');
     if (!settings.model) throw new Error('请填写 AI 模型名称');
     if (!this.sessionApiKey) throw new Error('请填写本次运行使用的 API Key');
-    const endpoint = this.validateEndpoint(settings.endpoint);
     const messages = [{ role: 'system', content: this.systemPrompt() }, ...this.shortContext.slice(-12), { role: 'user', content: prompt }];
-    const response = await this.request(endpoint, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${this.sessionApiKey}` }, body: JSON.stringify({ model: settings.model, messages }) });
-    if (!response.ok) throw new Error(`AI 请求失败：HTTP ${response.status}`);
-    const body = await response.json(), answer = text(body?.choices?.[0]?.message?.content, '', 8000);
-    if (!answer) throw new Error('AI 返回内容为空');
+    const answer = await this.completion(settings, messages);
     this.shortContext.push({ role: 'user', content: prompt }, { role: 'assistant', content: answer }); this.shortContext = this.shortContext.slice(-12);
-    const entry = { id: crypto.randomUUID(), timestamp: new Date().toISOString(), summary: answer.slice(0, 80), user: prompt, assistant: answer };
-    writeJsonAtomic(this.historyFile, { version: 1, entries: [...this.history(), entry].slice(-500) });
-    return entry;
+    return this.record(prompt, answer);
+  }
+  async vision(imageDataUrl, userText = '看看我的屏幕，给出简短建议。') {
+    const settings = this.settings(), prompt = text(userText, '看看我的屏幕，给出简短建议。', 1000);
+    if (!settings.enabled) throw new Error('请先启用 AI');
+    if (!settings.model) throw new Error('请填写支持 Vision 的模型名称');
+    if (!this.sessionApiKey) throw new Error('请填写本次运行使用的 API Key');
+    if (!/^data:image\/jpeg;base64,[a-z0-9+/=]+$/i.test(imageDataUrl) || imageDataUrl.length > 3_000_000) throw new Error('屏幕截图格式无效或超过 3MB');
+    const messages = [{ role: 'system', content: `${this.systemPrompt()}\n用户主动授权了本次屏幕截图分析。只描述当前截图，不推断截图之外的隐私信息。` }, { role: 'user', content: [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: imageDataUrl } }] }];
+    const answer = await this.completion(settings, messages);
+    this.shortContext.push({ role: 'user', content: '[用户主动分享了一次屏幕截图]' }, { role: 'assistant', content: answer }); this.shortContext = this.shortContext.slice(-12);
+    return this.record(prompt, answer, 'vision');
   }
   deleteHistory(id) { const before = this.history(), entries = before.filter((entry) => entry.id !== id); if (entries.length === before.length) return false; writeJsonAtomic(this.historyFile, { version: 1, entries }); return true; }
   clearHistory() { writeJsonAtomic(this.historyFile, { version: 1, entries: [] }); this.shortContext = []; }

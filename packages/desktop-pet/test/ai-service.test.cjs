@@ -33,3 +33,14 @@ test('remote plain HTTP endpoints are rejected', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sppet-ai-url-'));
   try { assert.throws(() => new AiService(root).validateEndpoint('http://example.com/v1/chat/completions'), /HTTPS/); } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
+
+test('vision only stores the text result and not the screenshot', async (context) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sppet-ai-vision-'));
+  context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  let requestBody;
+  const service = new AiService(root, async (_url, options) => { requestBody = JSON.parse(options.body); return { ok: true, json: async () => ({ choices: [{ message: { content: '请回到复习窗口。' } }] }) }; });
+  service.updateSettings({ enabled: true, endpoint: 'https://example.com/v1/chat/completions', model: 'vision-model' }); service.setSessionApiKey('session-only');
+  await service.vision('data:image/jpeg;base64,YQ==');
+  assert.equal(requestBody.messages[1].content[1].type, 'image_url');
+  assert.equal(fs.readFileSync(path.join(root, 'chat-history.json'), 'utf8').includes('data:image'), false);
+});

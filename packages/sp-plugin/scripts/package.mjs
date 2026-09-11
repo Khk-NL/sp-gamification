@@ -7,7 +7,7 @@ import path from 'node:path';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
 const outputDir = path.join(root, 'release');
-const outputPath = path.join(outputDir, 'SPPet-SP-v0.8.0.zip');
+const outputPath = path.join(outputDir, 'SPPet-SP-v0.9.0.zip');
 await mkdir(outputDir, { recursive: true });
 
 await new Promise((resolve, reject) => {
