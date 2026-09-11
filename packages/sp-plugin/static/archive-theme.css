@@ -456,6 +456,8 @@ textarea,
 .simple-rule { color: #6a4d3d; font-size: 12px; line-height: 1.55; }
 
 .skill-loadout { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.loadout-entry { display: grid; grid-template-columns: 1fr; gap: 5px; }
+.loadout-entry > button:last-child { min-height: 38px; }
 .loadout-skill { min-height: 72px; padding: 10px; text-align: left; border-left: 7px solid var(--element-color); }
 .loadout-skill b, .loadout-skill small { display: block; }
 .loadout-skill b { font-size: 13px; }

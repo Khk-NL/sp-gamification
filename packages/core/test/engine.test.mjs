@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_CONTENT, EventBus, advanceBattleStory, checkIn, claimMapReward, conditionRewardMultiplier, createInitialState, endTurn, getComputedStats, normalizeContent, onDailyReviewCompleted, onDayChecked, onFocusTimeAdded, onPetConnectionChecked, onPetTouched, onTaskCompleted, purchaseItem, equipItem, seedFocusTime, setEquippedSkills, setPlayMode, startBattle, startBattleAt, useSkill } from '../dist/index.js';
+import { DEFAULT_CONTENT, EventBus, advanceBattleStory, checkIn, claimMapReward, conditionRewardMultiplier, createInitialState, endTurn, getComputedStats, normalizeContent, onDailyReviewCompleted, onDayChecked, onFocusTimeAdded, onPetConnectionChecked, onPetTouched, onTaskCompleted, purchaseItem, equipItem, refreshShop, seedFocusTime, setEquippedSkills, setPlayMode, startBattle, startBattleAt, upgradeEquipment, upgradeSkill, useItem, useSkill } from '../dist/index.js';
 
 test('任务不直接发金币经验，完成委托后发经验且任务不重复结算', () => {
   let state = createInitialState('2026-09-10T08:00:00+08:00');
@@ -93,4 +93,15 @@ test('抚摸每日最多增加三点好感，陪伴模式禁止进入战斗', ()
 
 test('状态值使用四档明确倍率调整战斗收益', () => {
   assert.deepEqual([100, 80, 79, 50, 49, 20, 19, 0].map(conditionRewardMultiplier), [1.2, 1.2, 1, 1, .9, .9, .8, .8]);
+});
+
+test('技能与装备最多强化三级并持续消耗金币', () => {
+  const content = structuredClone(DEFAULT_CONTENT); content.chapters[0].enemies[0] = { ...content.chapters[0].enemies[0], maxHp: 200, defense: 0 };
+  let state = createInitialState(); state.coins = 300; state = upgradeSkill(state, 'strike', content).state; assert.equal(state.pet.skillLevels.strike, 2); state = advanceBattleStory(startBattle(state, content).state, true, content).state; assert.equal(useSkill(state, 'strike', content).events[0].payload.damage, 18);
+  state = createInitialState(); state.coins = 300; state = purchaseItem(state, 'pioneer-blade').state; state = equipItem(state, 'pioneer-blade').state; state = upgradeEquipment(state, 'pioneer-blade').state; assert.equal(state.pet.equipmentLevels['pioneer-blade'], 1); assert.equal(getComputedStats(state).attack, 18);
+});
+
+test('商店刷新、药品与消耗品形成可重复金币消费', () => {
+  let state = createInitialState(); state.coins = 100; const refreshed = refreshShop(state); assert.equal(refreshed.state.coins, 90); assert.equal(refreshed.state.shop.rotation.length, 8);
+  state = refreshed.state; state.pet.hp = 20; state = purchaseItem(state, 'repair-spray').state; const used = useItem(state, 'repair-spray'); assert.equal(used.state.pet.hp, 60); assert.equal(used.state.pet.inventory['repair-spray'], undefined);
 });

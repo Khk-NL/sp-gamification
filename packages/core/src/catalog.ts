@@ -29,6 +29,8 @@ export const DEFAULT_CONTENT: GameContent = {
     { id: 'field-ration', kind: 'food', name: '行动口粮', nameEn: 'Field Ration', description: '恢复 25 HP 和 10 状态。', price: 12, icon: 'FOOD', effects: { heal: 25, condition: 10 } },
     { id: 'comfort-tea', kind: 'food', name: '安神热饮', nameEn: 'Comfort Tea', description: '恢复 30 状态。', price: 18, icon: 'FOOD', effects: { condition: 30 } },
     { id: 'training-pack', kind: 'food', name: '训练补给', nameEn: 'Training Pack', description: '下一场战斗攻击 +3、经验 +20%。', price: 26, icon: 'BUFF', effects: { attack: 3, xpBonus: 20 } },
+    { id: 'repair-spray', kind: 'medicine', name: '修复喷剂', nameEn: 'Repair Spray', description: '恢复 40 HP。', price: 20, icon: 'MED', effects: { heal: 40 } },
+    { id: 'reward-beacon', kind: 'consumable', name: '奖励信标', nameEn: 'Reward Beacon', description: '下一场战斗金币 +20%。', price: 24, icon: 'USE', effects: { coinBonus: 20 } },
   ],
   chapters: [
     { id: 'waste-relay', name: '第一章：废墟中继站', nameEn: 'CH.1 Wasteland Relay', summary: '清理失控设施并夺回中继节点。', enemies: [

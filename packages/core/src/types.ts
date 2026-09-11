@@ -1,5 +1,5 @@
 export type DamageType = 'physical' | 'fire' | 'water' | 'ice' | 'electric';
-export type ItemKind = 'skin' | 'skill' | 'weapon' | 'armor' | 'accessory' | 'food';
+export type ItemKind = 'skin' | 'skill' | 'weapon' | 'armor' | 'accessory' | 'food' | 'medicine' | 'consumable';
 export type EquipmentSlot = 'weapon' | 'armor' | 'accessory';
 export type PlayMode = 'companion' | 'adventure';
 export type AffinityStage = 'stranger' | 'familiar' | 'close' | 'trusted' | 'best_friend';
@@ -17,7 +17,7 @@ export interface EnemyDefinition { id: string; name: string; nameEn: string; ele
 export interface ChapterDefinition { id: string; name: string; nameEn: string; summary: string; enemies: EnemyDefinition[]; }
 export interface GameContent { version: number; skills: SkillDefinition[]; items: ItemDefinition[]; chapters: ChapterDefinition[]; }
 
-export type SPPetEventType = 'TASK_COMPLETED' | 'FOCUS_SESSION_FINISHED' | 'DAILY_COMMISSION_COMPLETED' | 'COMMISSION_COMPLETED' | 'DAILY_CHECK_IN' | 'CHECK_IN' | 'COURSE_STARTING' | 'GOAL_PROGRESS_UPDATED' | 'IMPORTANT_DATE_APPROACHING' | 'JOURNAL_CREATED' | 'ITEM_USED' | 'PET_FED' | 'PET_TOUCHED' | 'BATTLE_STARTED' | 'BATTLE_WON' | 'BATTLE_LOST' | 'AFFINITY_CHANGED' | 'STATUS_CHANGED' | 'LEVEL_UP' | 'ACTIVE_WINDOW_CHANGED' | 'SYSTEM_LOAD_HIGH' | 'NETWORK_CHANGED' | 'STREAK_UPDATED' | 'MAP_REWARD_CLAIMED' | 'SKILL_USED' | 'ENEMY_ACTION' | 'CHAPTER_COMPLETED' | 'ITEM_PURCHASED' | 'ITEM_EQUIPPED' | 'PET_CONDITION_CHANGED' | 'PLAY_MODE_CHANGED' | 'DEBUG_XP' | 'DEBUG_COINS' | 'STATE_RESET';
+export type SPPetEventType = 'TASK_COMPLETED' | 'FOCUS_SESSION_FINISHED' | 'DAILY_COMMISSION_COMPLETED' | 'COMMISSION_COMPLETED' | 'DAILY_CHECK_IN' | 'CHECK_IN' | 'COURSE_STARTING' | 'GOAL_PROGRESS_UPDATED' | 'IMPORTANT_DATE_APPROACHING' | 'JOURNAL_CREATED' | 'ITEM_USED' | 'PET_FED' | 'PET_TOUCHED' | 'BATTLE_STARTED' | 'BATTLE_WON' | 'BATTLE_LOST' | 'AFFINITY_CHANGED' | 'STATUS_CHANGED' | 'LEVEL_UP' | 'ACTIVE_WINDOW_CHANGED' | 'SYSTEM_LOAD_HIGH' | 'NETWORK_CHANGED' | 'STREAK_UPDATED' | 'MAP_REWARD_CLAIMED' | 'SKILL_USED' | 'SKILL_UPGRADED' | 'EQUIPMENT_UPGRADED' | 'SHOP_REFRESHED' | 'ENEMY_ACTION' | 'CHAPTER_COMPLETED' | 'ITEM_PURCHASED' | 'ITEM_EQUIPPED' | 'PET_CONDITION_CHANGED' | 'PLAY_MODE_CHANGED' | 'DEBUG_XP' | 'DEBUG_COINS' | 'STATE_RESET';
 export interface SPPetEvent { id: string; type: SPPetEventType; timestamp: string; payload: Record<string, string | number | boolean | null>; }
 export interface BattleState {
   enemyId: string; enemyName: string; enemyHp: number; enemyMaxHp: number; enemyDefense: number; enemyResistances: Resistances;
@@ -27,7 +27,7 @@ export interface BattleState {
   phase: 'story_before' | 'combat' | 'story_after'; storyIndex: number; rewardsClaimed: boolean;
 }
 export interface SPPetState {
-  version: 4; mode: PlayMode; level: number; xp: number; coins: number; streak: number; lastActiveDate: string | null; lastLoginDate: string | null;
+  version: 5; mode: PlayMode; level: number; xp: number; coins: number; streak: number; lastActiveDate: string | null; lastLoginDate: string | null;
   totalTasksCompleted: number; totalFocusMinutes: number; totalBattlesWon: number; today: { date: string; tasksCompleted: number; xpEarned: number; focusRewardSteps: number };
   processedTaskIds: string[]; observedFocusMinutesByTask: Record<string, number>;
   commissions: { date: string; tasks: { progress: number; target: number; claimed: boolean }; focus: { progress: number; target: number; claimed: boolean }; priority: { progress: number; target: number; claimed: boolean }; review: { progress: number; target: number; claimed: boolean } };
@@ -35,10 +35,12 @@ export interface SPPetState {
   pet: {
     name: string; condition: number; hp: number; baseStats: Omit<CombatStats, 'damageBonus'>; learnedSkills: string[]; equippedSkills: string[];
     affinity: { points: number; stage: AffinityStage; touchDate: string | null; touchesToday: number };
+    skillLevels: Record<string, number>; equipmentLevels: Record<string, number>;
     inventory: Record<string, number>; equipped: Record<EquipmentSlot, string | null>; skinPart: string | null;
     buff: { xpBonus: number; coinBonus: number; attackBonus: number; battlesRemaining: number };
     lastConnectedAt: string; lastConditionDecayAt: string;
   };
+  shop: { date: string; refreshCount: number; rotation: string[] };
   adventure: { chapterIndex: number; encounterIndex: number; claimedMapRewards: string[]; activeBattle: BattleState | null };
   updatedAt: string;
 }

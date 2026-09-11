@@ -52,5 +52,5 @@ const reward = await messageHandler({ type: 'claimMapReward', rewardIndex: 0 });
 const loadout = await messageHandler({ type: 'setEquippedSkills', skillIds: ['strike'] }); assert.equal(loadout.state.pet.equippedSkills.join(','), 'strike');
 const battle = await messageHandler({ type: 'startBattleAt', encounterIndex: 1 }); assert.equal(battle.state.adventure.activeBattle.phase, 'story_before'); assert.equal(battle.state.adventure.activeBattle.resource, 5);
 await messageHandler({ type: 'advanceStory', skip: true }); const skill = await messageHandler({ type: 'useSkill', skillId: 'strike' }); assert.equal(skill.state.adventure.activeBattle.turn, 1); assert.equal(skill.state.adventure.activeBattle.resource, 4); const ended = await messageHandler({ type: 'endTurn' }); assert.equal(ended.state.adventure.activeBattle.turn, 2); assert.equal(ended.state.adventure.activeBattle.resource, 5);
-assert.equal(JSON.parse(persisted.get('gamification-state-v1')).version, 4);
+assert.equal(JSON.parse(persisted.get('gamification-state-v1')).version, 5);
 console.log('SP plugin smoke test passed');

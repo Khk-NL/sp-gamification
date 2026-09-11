@@ -27,6 +27,9 @@ import {
   startBattle,
   startBattleAt,
   updatePetName,
+  upgradeEquipment,
+  upgradeSkill,
+  refreshShop,
   useItem,
   useSkill,
   xpRequiredForLevel,
@@ -87,6 +90,9 @@ interface CoreEvents {
   BATTLE_STORY_ADVANCED: { skip: boolean };
   SKILL_USED: { skillId: string };
   BATTLE_TURN_ENDED: Record<string, never>;
+  SKILL_UPGRADED: { skillId: string };
+  EQUIPMENT_UPGRADED: { itemId: string };
+  SHOP_REFRESHED: Record<string, never>;
 }
 const coreEvents = new EventBus<CoreEvents>();
 
@@ -142,6 +148,9 @@ coreEvents.on('MAP_REWARD_CLAIMED', async (payload) => { await runEngine((curren
 coreEvents.on('BATTLE_STORY_ADVANCED', async (payload) => { await runEngine((current, _cfg, gameContent) => advanceBattleStory(current, payload.skip, gameContent)); });
 coreEvents.on('SKILL_USED', async (payload) => { await runEngine((current, _cfg, gameContent) => useSkill(current, payload.skillId, gameContent)); });
 coreEvents.on('BATTLE_TURN_ENDED', async () => { await runEngine((current, _cfg, gameContent) => endTurn(current, gameContent)); });
+coreEvents.on('SKILL_UPGRADED', async (payload) => { await runEngine((current, _cfg, gameContent) => upgradeSkill(current, payload.skillId, gameContent)); });
+coreEvents.on('EQUIPMENT_UPGRADED', async (payload) => { await runEngine((current, _cfg, gameContent) => upgradeEquipment(current, payload.itemId, gameContent)); });
+coreEvents.on('SHOP_REFRESHED', async () => { await runEngine((current, _cfg, gameContent) => refreshShop(current, gameContent)); });
 
 PluginAPI.registerHook(PluginAPI.Hooks.TASK_COMPLETE, async (payload) => { const task = payload?.task as SpTask | undefined; const tags = task?.resolvedTagNames ?? []; await coreEvents.emit('TASK_COMPLETED', { taskId: payload?.taskId ?? task?.id ?? '', highPriority: tags.some((tag) => /^(high|high priority|高优先级|重要)$/i.test(tag.trim())), occurredAt: payload?.task?.doneOn ?? Date.now() }); });
 PluginAPI.registerHook(PluginAPI.Hooks.TASK_UPDATE, async (payload) => { const task = payload?.task as SpTask | undefined; if (!task?.id || !Object.prototype.hasOwnProperty.call(payload?.changes ?? {}, 'timeSpent')) return; await coreEvents.emit('FOCUS_SESSION_FINISHED', { sourceId: task.id, sourceTotalMinutes: task.timeSpent / 60_000 }); });
@@ -168,6 +177,9 @@ PluginAPI.onMessage?.(async (message: unknown) => {
       case 'advanceStory': await coreEvents.emit('BATTLE_STORY_ADVANCED', { skip: Boolean(data.skip) }); break;
       case 'useSkill': await coreEvents.emit('SKILL_USED', { skillId: String(data.skillId ?? '') }); break;
       case 'endTurn': await coreEvents.emit('BATTLE_TURN_ENDED', {}); break;
+      case 'upgradeSkill': await coreEvents.emit('SKILL_UPGRADED', { skillId: String(data.skillId ?? '') }); break;
+      case 'upgradeEquipment': await coreEvents.emit('EQUIPMENT_UPGRADED', { itemId: String(data.itemId ?? '') }); break;
+      case 'refreshShop': await coreEvents.emit('SHOP_REFRESHED', {}); break;
       case 'setEquippedSkills': await runEngine((current, _cfg, gameContent) => setEquippedSkills(current, Array.isArray(data.skillIds) ? data.skillIds.map(String) : [], gameContent)); break;
       case 'purchaseItem': await runEngine((current, _cfg, gameContent) => purchaseItem(current, String(data.itemId ?? ''), gameContent)); break;
       case 'equipItem': await runEngine((current, _cfg, gameContent) => equipItem(current, String(data.itemId ?? ''), gameContent)); break;
