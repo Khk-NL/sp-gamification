@@ -119,7 +119,7 @@ SP Plugin → ws://127.0.0.1:47821 → SPPet → JSON
 
 服务器必须通过环境变量设置 `SPPET_ADMIN_KEY`，管理页面才能发布内容。插件从 `https://sppet.scsldr.cn/api/content` 获取内容，离线时继续使用内置目录。
 
-## 验证
+## 集中验证
 
 ```powershell
 pnpm test
