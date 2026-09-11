@@ -9,6 +9,8 @@ const copy = {
 };
 Object.assign(copy.zh, { battle: '战斗', mapHint: '每层只能选择一个相连节点；章节末端必须挑战 Boss。', elementRules: '属性克制' });
 Object.assign(copy.en, { battle: 'Battle', mapHint: 'Choose one connected node per floor. The final floor is always a boss.', elementRules: 'Element chart' });
+Object.assign(copy.zh, { statusReward: '状态收益' });
+Object.assign(copy.en, { statusReward: 'Condition reward' });
 
 function sendMessage(type, payload = {}) {
   return new Promise((resolve, reject) => {

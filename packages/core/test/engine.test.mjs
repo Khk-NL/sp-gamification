@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_CONTENT, EventBus, advanceBattleStory, checkIn, claimMapReward, createInitialState, endTurn, getComputedStats, normalizeContent, onDailyReviewCompleted, onDayChecked, onFocusTimeAdded, onPetConnectionChecked, onPetTouched, onTaskCompleted, purchaseItem, equipItem, seedFocusTime, setEquippedSkills, setPlayMode, startBattle, startBattleAt, useSkill } from '../dist/index.js';
+import { DEFAULT_CONTENT, EventBus, advanceBattleStory, checkIn, claimMapReward, conditionRewardMultiplier, createInitialState, endTurn, getComputedStats, normalizeContent, onDailyReviewCompleted, onDayChecked, onFocusTimeAdded, onPetConnectionChecked, onPetTouched, onTaskCompleted, purchaseItem, equipItem, seedFocusTime, setEquippedSkills, setPlayMode, startBattle, startBattleAt, useSkill } from '../dist/index.js';
 
 test('任务不直接发金币经验，完成委托后发经验且任务不重复结算', () => {
   let state = createInitialState('2026-09-10T08:00:00+08:00');
@@ -33,7 +33,7 @@ test('签到奖励随连续签到增加且同日只领一次', () => {
 
 test('战斗包含可跳过的战前战后剧情且奖励只结算一次', () => {
   const content = structuredClone(DEFAULT_CONTENT); content.chapters = [{ ...content.chapters[0], enemies: [{ ...content.chapters[0].enemies[0], maxHp: 1, xp: 20, coins: 10, storyBefore: ['前'], storyAfter: ['后'] }] }];
-  let state = startBattle(createInitialState(), content).state; assert.equal(state.adventure.activeBattle.phase, 'story_before'); state = advanceBattleStory(state, true, content).state; assert.equal(state.adventure.activeBattle.phase, 'combat'); const won = useSkill(state, 'strike', content); assert.equal(won.state.adventure.activeBattle.phase, 'story_after'); assert.equal(won.state.coins, 10); const duplicate = useSkill(won.state, 'strike', content); assert.equal(duplicate.state.coins, 10); const finished = advanceBattleStory(won.state, true, content); assert.equal(finished.state.adventure.activeBattle, null); assert.equal(finished.state.adventure.chapterIndex, 0);
+  let initial = createInitialState(); initial.pet.condition = 50; let state = startBattle(initial, content).state; assert.equal(state.adventure.activeBattle.phase, 'story_before'); state = advanceBattleStory(state, true, content).state; assert.equal(state.adventure.activeBattle.phase, 'combat'); const won = useSkill(state, 'strike', content); assert.equal(won.state.adventure.activeBattle.phase, 'story_after'); assert.equal(won.state.coins, 10); const duplicate = useSkill(won.state, 'strike', content); assert.equal(duplicate.state.coins, 10); const finished = advanceBattleStory(won.state, true, content); assert.equal(finished.state.adventure.activeBattle, null); assert.equal(finished.state.adventure.chapterIndex, 0);
 });
 
 test('单回合可以连续使用技能，结束回合后敌人才行动且资源回到 5', () => {
@@ -89,4 +89,8 @@ test('四类每日委托受每日 XP 上限约束并恢复状态与增加好感'
 test('抚摸每日最多增加三点好感，陪伴模式禁止进入战斗', () => {
   let state = createInitialState('2026-09-12T08:00:00'); for (let index = 0; index < 5; index += 1) state = onPetTouched(state, '2026-09-12T09:00:00').state; assert.equal(state.pet.affinity.points, 3);
   state = setPlayMode(state, 'companion').state; assert.equal(state.mode, 'companion'); assert.equal(startBattle(state).events.length, 0);
+});
+
+test('状态值使用四档明确倍率调整战斗收益', () => {
+  assert.deepEqual([100, 80, 79, 50, 49, 20, 19, 0].map(conditionRewardMultiplier), [1.2, 1.2, 1, 1, .9, .9, .8, .8]);
 });

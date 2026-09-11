@@ -82,6 +82,11 @@ interface CoreEvents {
   PET_CONNECTION_CHANGED: { connected: boolean };
   PET_TOUCHED: Record<string, never>;
   PLAY_MODE_CHANGED: { mode: PlayMode };
+  BATTLE_STARTED: { encounterIndex?: number };
+  MAP_REWARD_CLAIMED: { rewardIndex: number };
+  BATTLE_STORY_ADVANCED: { skip: boolean };
+  SKILL_USED: { skillId: string };
+  BATTLE_TURN_ENDED: Record<string, never>;
 }
 const coreEvents = new EventBus<CoreEvents>();
 
@@ -132,6 +137,11 @@ coreEvents.on('DAILY_CHECK_IN', async () => { await runEngine((current) => check
 coreEvents.on('PET_CONNECTION_CHANGED', async (payload) => { await runEngine((current, cfg) => onPetConnectionChecked(current, payload.connected, undefined, cfg)); });
 coreEvents.on('PET_TOUCHED', async () => { await runEngine((current) => onPetTouched(current)); });
 coreEvents.on('PLAY_MODE_CHANGED', async (payload) => { await runEngine((current) => setPlayMode(current, payload.mode)); });
+coreEvents.on('BATTLE_STARTED', async (payload) => { await runEngine((current, _cfg, gameContent) => payload.encounterIndex === undefined ? startBattle(current, gameContent) : startBattleAt(current, payload.encounterIndex, gameContent)); });
+coreEvents.on('MAP_REWARD_CLAIMED', async (payload) => { await runEngine((current, _cfg, gameContent) => claimMapReward(current, payload.rewardIndex, gameContent)); });
+coreEvents.on('BATTLE_STORY_ADVANCED', async (payload) => { await runEngine((current, _cfg, gameContent) => advanceBattleStory(current, payload.skip, gameContent)); });
+coreEvents.on('SKILL_USED', async (payload) => { await runEngine((current, _cfg, gameContent) => useSkill(current, payload.skillId, gameContent)); });
+coreEvents.on('BATTLE_TURN_ENDED', async () => { await runEngine((current, _cfg, gameContent) => endTurn(current, gameContent)); });
 
 PluginAPI.registerHook(PluginAPI.Hooks.TASK_COMPLETE, async (payload) => { const task = payload?.task as SpTask | undefined; const tags = task?.resolvedTagNames ?? []; await coreEvents.emit('TASK_COMPLETED', { taskId: payload?.taskId ?? task?.id ?? '', highPriority: tags.some((tag) => /^(high|high priority|高优先级|重要)$/i.test(tag.trim())), occurredAt: payload?.task?.doneOn ?? Date.now() }); });
 PluginAPI.registerHook(PluginAPI.Hooks.TASK_UPDATE, async (payload) => { const task = payload?.task as SpTask | undefined; if (!task?.id || !Object.prototype.hasOwnProperty.call(payload?.changes ?? {}, 'timeSpent')) return; await coreEvents.emit('FOCUS_SESSION_FINISHED', { sourceId: task.id, sourceTotalMinutes: task.timeSpent / 60_000 }); });
@@ -152,12 +162,12 @@ PluginAPI.onMessage?.(async (message: unknown) => {
       case 'checkIn': await coreEvents.emit('DAILY_CHECK_IN', {}); break;
       case 'touchPet': await coreEvents.emit('PET_TOUCHED', {}); break;
       case 'setPlayMode': await coreEvents.emit('PLAY_MODE_CHANGED', { mode: data.mode === 'companion' ? 'companion' : 'adventure' }); break;
-      case 'startBattle': await runEngine((current, _cfg, gameContent) => startBattle(current, gameContent)); break;
-      case 'startBattleAt': await runEngine((current, _cfg, gameContent) => startBattleAt(current, Number(data.encounterIndex), gameContent)); break;
-      case 'claimMapReward': await runEngine((current, _cfg, gameContent) => claimMapReward(current, Number(data.rewardIndex), gameContent)); break;
-      case 'advanceStory': await runEngine((current, _cfg, gameContent) => advanceBattleStory(current, Boolean(data.skip), gameContent)); break;
-      case 'useSkill': await runEngine((current, _cfg, gameContent) => useSkill(current, String(data.skillId ?? ''), gameContent)); break;
-      case 'endTurn': await runEngine((current, _cfg, gameContent) => endTurn(current, gameContent)); break;
+      case 'startBattle': await coreEvents.emit('BATTLE_STARTED', {}); break;
+      case 'startBattleAt': await coreEvents.emit('BATTLE_STARTED', { encounterIndex: Number(data.encounterIndex) }); break;
+      case 'claimMapReward': await coreEvents.emit('MAP_REWARD_CLAIMED', { rewardIndex: Number(data.rewardIndex) }); break;
+      case 'advanceStory': await coreEvents.emit('BATTLE_STORY_ADVANCED', { skip: Boolean(data.skip) }); break;
+      case 'useSkill': await coreEvents.emit('SKILL_USED', { skillId: String(data.skillId ?? '') }); break;
+      case 'endTurn': await coreEvents.emit('BATTLE_TURN_ENDED', {}); break;
       case 'setEquippedSkills': await runEngine((current, _cfg, gameContent) => setEquippedSkills(current, Array.isArray(data.skillIds) ? data.skillIds.map(String) : [], gameContent)); break;
       case 'purchaseItem': await runEngine((current, _cfg, gameContent) => purchaseItem(current, String(data.itemId ?? ''), gameContent)); break;
       case 'equipItem': await runEngine((current, _cfg, gameContent) => equipItem(current, String(data.itemId ?? ''), gameContent)); break;
