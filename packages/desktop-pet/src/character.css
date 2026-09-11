@@ -1,0 +1,30 @@
+.character {
+  display: grid;
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  width: 150px;
+  height: 170px;
+  place-items: center;
+  transform: translateX(-50%);
+  background-position: center bottom;
+  background-repeat: no-repeat;
+  background-size: contain;
+  filter: drop-shadow(7px 8px rgba(0, 0, 0, .25));
+  font-size: 96px;
+  line-height: 1;
+  user-select: none;
+}
+.pet-zone.manifest .pet,
+.pet-zone.manifest .custom-sprite { display: none; }
+.pet-zone.state-walk .character { animation: character-walk .45s steps(2) infinite; }
+.pet-zone.state-sleep .character { filter: grayscale(.15) drop-shadow(7px 8px rgba(0, 0, 0, .2)); }
+.pet-zone.state-fall .shadow { opacity: .25; transform: translateX(-50%) scale(.65); }
+.pet-zone.state-drag .character { transform: translateX(-50%) rotate(-5deg); }
+.pet-zone.drag-left .character { transform: translateX(-50%) scaleX(-1) rotate(5deg); }
+.settings-panel.open { display: flex; flex-direction: column; }
+.settings-panel section { min-height: 0; overflow-y: auto; padding-right: 3px; }
+.settings-panel .row > select { min-width: 0; flex: 1; }
+.settings-panel .row > button { flex: 0 0 auto; }
+.settings-panel select { width: 100%; padding: 8px; border: 1px solid #555b60; background: #171a1d; color: #fff; font: 12px "Arial Black", "Microsoft YaHei", sans-serif; }
+@keyframes character-walk { 50% { transform: translateX(-50%) translateY(-7px) rotate(3deg); } }

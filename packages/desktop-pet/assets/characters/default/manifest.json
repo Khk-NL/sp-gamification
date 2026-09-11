@@ -1,0 +1,31 @@
+{
+  "manifestVersion": 1,
+  "id": "default_pet",
+  "name": "SPPet 默认伙伴",
+  "type": "emoji",
+  "author": "SPPet",
+  "version": "1.0.0",
+  "states": {
+    "idle": "🐱",
+    "walk": "🐾",
+    "sleep": "😴",
+    "happy": "😸",
+    "sad": "😿",
+    "angry": "😾",
+    "tired": "🙀",
+    "eat": "😋",
+    "touch": "😺",
+    "drag": "🐈",
+    "fall": "🐈",
+    "edge": "🐱",
+    "battle": "⚔️",
+    "victory": "😸",
+    "defeat": "😿",
+    "talk": "😺"
+  },
+  "animations": {},
+  "outfits": [],
+  "accessories": [],
+  "sounds": {},
+  "effects": {}
+}

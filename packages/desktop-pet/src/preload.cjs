@@ -7,6 +7,10 @@ contextBridge.exposeInMainWorld('petApi', {
   clearSkin: () => ipcRenderer.invoke('pet-clear-skin'),
   setAlwaysOnTop: (enabled) => ipcRenderer.invoke('pet-set-top', enabled),
   setSize: (size) => ipcRenderer.invoke('pet-set-size', size),
+  importCharacter: () => ipcRenderer.invoke('pet-import-character'),
+  selectCharacter: (id) => ipcRenderer.invoke('pet-select-character', id),
+  deleteCharacter: (id) => ipcRenderer.invoke('pet-delete-character', id),
+  setBehavior: (changes) => ipcRenderer.invoke('pet-set-behavior', changes),
   setSettingsOpen: (open) => ipcRenderer.send('pet-settings-open', open),
   setInteractive: (interactive) => ipcRenderer.send('pet-set-interactive', interactive),
   dragStart: () => ipcRenderer.send('pet-drag-start'),
@@ -27,5 +31,10 @@ contextBridge.exposeInMainWorld('petApi', {
     const listener = () => handler();
     ipcRenderer.on('open-pet-settings', listener);
     return () => ipcRenderer.removeListener('open-pet-settings', listener);
+  },
+  onMotionState: (handler) => {
+    const listener = (_event, state) => handler(state);
+    ipcRenderer.on('pet-motion-state', listener);
+    return () => ipcRenderer.removeListener('pet-motion-state', listener);
   },
 });

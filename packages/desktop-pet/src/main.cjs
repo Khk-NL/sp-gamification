@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
+const { AssetManager } = require('./asset-manager.cjs');
 
 const appData = process.env.APPDATA || os.homedir();
 const DATA_DIRECTORY = process.env.SPPET_DATA_DIR || process.env.SP_GAMIFICATION_DATA_DIR || path.join(appData, 'SPPet');
@@ -13,11 +14,13 @@ const EVENTS_FILE = path.join(DATA_DIRECTORY, 'events.json');
 const CURSOR_FILE = path.join(DATA_DIRECTORY, 'pet-cursor.json');
 const PET_SETTINGS_FILE = path.join(DATA_DIRECTORY, 'pet-settings.json');
 const PET_PROFILE_FILE = path.join(DATA_DIRECTORY, 'pet-profile.json');
+const CHARACTERS_DIRECTORY = path.join(DATA_DIRECTORY, 'characters');
 const BRIDGE_PORT = 47821;
 
-let windowRef, tray, watcher, readTimer, bridgeServer, dragSession;
+let windowRef, tray, watcher, characterWatcher, readTimer, bridgeServer, dragSession, fallTimer, walkTimer, settingsOpen = false;
 let bridgeConnected = false, bridgeLastSync = null, lastEventId = null, initialized = false;
 const bridgeSockets = new Set();
+const assetManager = new AssetManager(path.join(__dirname, '..', 'assets', 'characters'), CHARACTERS_DIRECTORY);
 
 const readJson = (file, fallback) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; } };
 const writeJsonAtomic = (file, value) => { const temp = `${file}.${process.pid}.tmp`; fs.writeFileSync(temp, `${JSON.stringify(value, null, 2)}\n`, 'utf8'); fs.renameSync(temp, file); };
@@ -33,13 +36,14 @@ const loadSkin = (jsonPath) => {
   return { meta: { id: meta.id, displayName: meta.displayName, description: String(meta.description || ''), spriteVersionNumber: Number(meta.spriteVersionNumber || 1) }, imageDataUrl: `data:${mime};base64,${fs.readFileSync(imagePath).toString('base64')}`, jsonPath };
 };
 const currentSkin = () => { try { return loadSkin(readJson(PET_SETTINGS_FILE, {}).skinJsonPath); } catch { return null; } };
+const currentCharacter = () => { try { return assetManager.load(readJson(PET_SETTINGS_FILE, {}).characterId || 'default_pet'); } catch { return assetManager.load('default_pet'); } };
 
 const publishSnapshot = () => {
   if (!windowRef || windowRef.isDestroyed() || windowRef.webContents.isLoading()) return; const { state, events } = readSnapshot();
   if (!initialized) { const cursor = readJson(CURSOR_FILE, { lastEventId: null }); lastEventId = typeof cursor.lastEventId === 'string' ? cursor.lastEventId : events.at(-1)?.id ?? null; initialized = true; }
   let cursorIndex = lastEventId ? events.findIndex((entry) => entry.id === lastEventId) : -1; if (lastEventId && cursorIndex < 0) cursorIndex = events.length - 1; const unseen = cursorIndex >= 0 ? events.slice(cursorIndex + 1) : lastEventId ? [] : events;
   if (unseen.length) { lastEventId = unseen.at(-1).id; writeJsonAtomic(CURSOR_FILE, { lastEventId, updatedAt: new Date().toISOString() }); }
-  windowRef.webContents.send('sppet-snapshot', { state, events: unseen, dataDirectory: DATA_DIRECTORY, bridge: { connected: bridgeConnected, port: BRIDGE_PORT, lastSync: bridgeLastSync }, skin: currentSkin(), petSettings: readJson(PET_SETTINGS_FILE, { size: 1, alwaysOnTop: true }), petProfile: readJson(PET_PROFILE_FILE, { idleLines: [], clickLines: [] }) });
+  windowRef.webContents.send('sppet-snapshot', { state, events: unseen, dataDirectory: DATA_DIRECTORY, bridge: { connected: bridgeConnected, port: BRIDGE_PORT, lastSync: bridgeLastSync }, skin: currentSkin(), character: currentCharacter(), characters: assetManager.list(), petSettings: readJson(PET_SETTINGS_FILE, { size: 1, alwaysOnTop: true, gravityEnabled: true, autoWalk: false }), petProfile: readJson(PET_PROFILE_FILE, { idleLines: [], clickLines: [] }) });
 };
 const scheduleRead = () => { clearTimeout(readTimer); readTimer = setTimeout(publishSnapshot, 90); };
 
@@ -60,15 +64,20 @@ const createTrayIcon = () => { const svg = `<svg xmlns="http://www.w3.org/2000/s
 const showWindow = () => { if (!windowRef) return; windowRef.show(); windowRef.focus(); publishSnapshot(); };
 const resizeForSettings = (open) => { if (!windowRef) return; const bounds = windowRef.getBounds(); const width = open ? 340 : 250, height = open ? 460 : 300; windowRef.setBounds({ x: bounds.x, y: bounds.y + bounds.height - height, width, height }, true); };
 const setWindowInteractive = (interactive) => { if (!windowRef || windowRef.isDestroyed()) return; if (interactive) windowRef.setIgnoreMouseEvents(false); else windowRef.setIgnoreMouseEvents(true, { forward: true }); };
-const createWindow = () => { const prefs = readJson(PET_SETTINGS_FILE, { alwaysOnTop: true }); windowRef = new BrowserWindow({ width: 250, height: 300, transparent: true, frame: false, resizable: false, alwaysOnTop: prefs.alwaysOnTop !== false, skipTaskbar: true, show: false, hasShadow: false, webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false } }); windowRef.loadFile(path.join(__dirname, 'index.html')); windowRef.once('ready-to-show', () => { showWindow(); setWindowInteractive(false); }); windowRef.on('blur', () => { dragSession = null; }); };
+const sendMotionState = (state) => { if (windowRef && !windowRef.isDestroyed()) windowRef.webContents.send('pet-motion-state', state); };
+const settleToSurface = () => { if (!windowRef || windowRef.isDestroyed()) return; clearInterval(fallTimer); const bounds = windowRef.getBounds(), display = screen.getDisplayNearestPoint({ x: bounds.x + Math.floor(bounds.width / 2), y: bounds.y + Math.floor(bounds.height / 2) }), area = display.workArea; let x = Math.max(area.x, Math.min(bounds.x, area.x + area.width - bounds.width)); const edge = x - area.x < 18 || area.x + area.width - (x + bounds.width) < 18; if (x - area.x < 18) x = area.x; else if (area.x + area.width - (x + bounds.width) < 18) x = area.x + area.width - bounds.width; windowRef.setPosition(x, area.y + area.height - bounds.height, false); sendMotionState(edge ? 'edge' : 'idle'); };
+const startFall = () => { if (!windowRef) return; if (readJson(PET_SETTINGS_FILE, { gravityEnabled: true }).gravityEnabled === false) { sendMotionState('idle'); return; } clearInterval(fallTimer); let velocity = 0; sendMotionState('fall'); fallTimer = setInterval(() => { if (!windowRef || windowRef.isDestroyed() || dragSession) { clearInterval(fallTimer); return; } const bounds = windowRef.getBounds(), area = screen.getDisplayNearestPoint({ x: bounds.x + Math.floor(bounds.width / 2), y: bounds.y + bounds.height }).workArea, floor = area.y + area.height - bounds.height; if (bounds.y >= floor) { settleToSurface(); return; } velocity = Math.min(28, velocity + 2); windowRef.setPosition(bounds.x, Math.min(floor, bounds.y + velocity), false); }, 32); };
+const maybeWalk = () => { const prefs = readJson(PET_SETTINGS_FILE, { autoWalk: false }); if (!prefs.autoWalk || dragSession || settingsOpen || !windowRef || windowRef.isDestroyed()) return; const bounds = windowRef.getBounds(), area = screen.getDisplayNearestPoint({ x: bounds.x + Math.floor(bounds.width / 2), y: bounds.y + bounds.height }).workArea; if (bounds.y !== area.y + area.height - bounds.height) return; const direction = Math.random() < .5 ? -1 : 1; let steps = 0; sendMotionState('walk'); clearInterval(walkTimer); walkTimer = setInterval(() => { if (!windowRef || dragSession || settingsOpen || steps++ >= 40) { clearInterval(walkTimer); settleToSurface(); return; } const current = windowRef.getBounds(), nextX = Math.max(area.x, Math.min(current.x + direction * 2, area.x + area.width - current.width)); windowRef.setPosition(nextX, current.y, false); if (nextX === area.x || nextX === area.x + area.width - current.width) { clearInterval(walkTimer); sendMotionState('edge'); } }, 50); };
+const createWindow = () => { const prefs = readJson(PET_SETTINGS_FILE, { alwaysOnTop: true }); windowRef = new BrowserWindow({ width: 250, height: 300, transparent: true, frame: false, resizable: false, alwaysOnTop: prefs.alwaysOnTop !== false, skipTaskbar: true, show: false, hasShadow: false, webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false } }); const area = screen.getPrimaryDisplay().workArea; windowRef.setPosition(area.x + area.width - 270, area.y + area.height - 300, false); windowRef.loadFile(path.join(__dirname, 'index.html')); windowRef.once('ready-to-show', () => { showWindow(); settleToSurface(); setWindowInteractive(false); }); windowRef.on('blur', () => { dragSession = null; }); };
 const createTray = () => { tray = new Tray(createTrayIcon()); tray.setToolTip('SPPet'); tray.setContextMenu(Menu.buildFromTemplate([{ label: '显示 SPPet', click: showWindow }, { label: '桌宠设置', click: () => { showWindow(); resizeForSettings(true); windowRef?.webContents.send('open-pet-settings'); } }, { type: 'separator' }, { label: '退出', click: () => app.quit() }])); tray.on('double-click', showWindow); };
 
-if (!app.requestSingleInstanceLock()) app.quit(); else { app.on('second-instance', showWindow); app.whenReady().then(() => { fs.mkdirSync(DATA_DIRECTORY, { recursive: true }); migrateLegacyData(); createWindow(); createTray(); startBridgeServer(); watcher = fs.watch(DATA_DIRECTORY, (_event, filename) => { if (['state.json','events.json','pet-settings.json','pet-profile.json'].includes(String(filename))) scheduleRead(); }); }); }
-ipcMain.on('pet-hide', () => windowRef?.hide()); ipcMain.on('pet-close', () => app.quit()); ipcMain.on('pet-settings-open', (_event, open) => resizeForSettings(Boolean(open)));
+if (!app.requestSingleInstanceLock()) app.quit(); else { app.on('second-instance', showWindow); app.whenReady().then(() => { fs.mkdirSync(DATA_DIRECTORY, { recursive: true }); migrateLegacyData(); createWindow(); createTray(); startBridgeServer(); watcher = fs.watch(DATA_DIRECTORY, (_event, filename) => { if (['state.json','events.json','pet-settings.json','pet-profile.json'].includes(String(filename))) scheduleRead(); }); characterWatcher = fs.watch(CHARACTERS_DIRECTORY, { recursive: true }, () => { assetManager.clearCache(); scheduleRead(); }); setInterval(maybeWalk, 30_000); }); }
+ipcMain.on('pet-hide', () => windowRef?.hide()); ipcMain.on('pet-close', () => app.quit()); ipcMain.on('pet-settings-open', (_event, open) => { settingsOpen = Boolean(open); resizeForSettings(settingsOpen); });
 const fromPetWindow = (event) => windowRef && !windowRef.isDestroyed() && event.sender === windowRef.webContents;
 ipcMain.on('pet-set-interactive', (event, interactive) => { if (fromPetWindow(event)) setWindowInteractive(Boolean(interactive)); });
 ipcMain.on('pet-drag-start', (event) => {
   if (!fromPetWindow(event)) return;
+  clearInterval(fallTimer); clearInterval(walkTimer); sendMotionState('drag');
   const [windowX, windowY] = windowRef.getPosition(); const pointer = screen.getCursorScreenPoint();
   dragSession = { windowX, windowY, pointerX: pointer.x, pointerY: pointer.y, lastPointerX: pointer.x, lastPointerY: pointer.y };
 });
@@ -77,10 +86,14 @@ ipcMain.on('pet-drag-move', (event) => {
   const pointer = screen.getCursorScreenPoint(); if (pointer.x === dragSession.lastPointerX && pointer.y === dragSession.lastPointerY) return; dragSession.lastPointerX = pointer.x; dragSession.lastPointerY = pointer.y;
   const bounds = windowRef.getBounds(); const workArea = screen.getDisplayNearestPoint(pointer).workArea; const x = Math.min(workArea.x + workArea.width - bounds.width, Math.max(workArea.x, dragSession.windowX + pointer.x - dragSession.pointerX)); const y = Math.min(workArea.y + workArea.height - bounds.height, Math.max(workArea.y, dragSession.windowY + pointer.y - dragSession.pointerY)); const [currentX, currentY] = windowRef.getPosition(); if (x !== currentX || y !== currentY) windowRef.setPosition(x, y, false);
 });
-ipcMain.on('pet-drag-end', (event) => { if (fromPetWindow(event)) dragSession = null; });
+ipcMain.on('pet-drag-end', (event) => { if (fromPetWindow(event)) { dragSession = null; startFall(); } });
 ipcMain.on('pet-touched', (event) => { if (fromPetWindow(event)) sendBridgeEvent('PET_TOUCHED'); });
 ipcMain.handle('pet-select-skin', async () => { const result = await dialog.showOpenDialog(windowRef, { title: '选择桌宠 pet.json', properties: ['openFile'], filters: [{ name: 'Pet skin', extensions: ['json'] }] }); if (result.canceled || !result.filePaths[0]) return null; const skin = loadSkin(result.filePaths[0]); updatePetSettings({ skinJsonPath: result.filePaths[0] }); publishSnapshot(); return skin; });
 ipcMain.handle('pet-clear-skin', async () => { updatePetSettings({ skinJsonPath: null }); publishSnapshot(); return true; });
 ipcMain.handle('pet-set-top', async (_event, enabled) => { windowRef?.setAlwaysOnTop(Boolean(enabled)); updatePetSettings({ alwaysOnTop: Boolean(enabled) }); return Boolean(enabled); });
 ipcMain.handle('pet-set-size', async (_event, size) => { const safe = Math.min(1.6, Math.max(.65, Number(size) || 1)); updatePetSettings({ size: safe }); publishSnapshot(); return safe; });
-app.on('before-quit', () => { watcher?.close(); bridgeServer?.close(); clearTimeout(readTimer); }); app.on('window-all-closed', () => {});
+ipcMain.handle('pet-import-character', async () => { const result = await dialog.showOpenDialog(windowRef, { title: '选择角色资源文件夹', properties: ['openDirectory'] }); if (result.canceled || !result.filePaths[0]) return null; const character = assetManager.importFolder(result.filePaths[0]); updatePetSettings({ characterId: character.manifest.id, skinJsonPath: null }); publishSnapshot(); return character; });
+ipcMain.handle('pet-select-character', async (_event, id) => { const characterId = String(id); if (!assetManager.find(characterId)) throw new Error('角色不存在'); const character = assetManager.load(characterId); updatePetSettings({ characterId: character.manifest.id, skinJsonPath: null }); publishSnapshot(); return character; });
+ipcMain.handle('pet-delete-character', async (_event, id) => { assetManager.remove(String(id)); updatePetSettings({ characterId: 'default_pet' }); publishSnapshot(); return true; });
+ipcMain.handle('pet-set-behavior', async (_event, changes) => { const next = updatePetSettings({ gravityEnabled: changes?.gravityEnabled !== false, autoWalk: changes?.autoWalk === true }); publishSnapshot(); return next; });
+app.on('before-quit', () => { watcher?.close(); characterWatcher?.close(); bridgeServer?.close(); clearTimeout(readTimer); clearInterval(fallTimer); clearInterval(walkTimer); }); app.on('window-all-closed', () => {});

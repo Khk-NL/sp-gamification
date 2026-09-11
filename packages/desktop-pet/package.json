@@ -1,6 +1,6 @@
 {
   "name": "@sppet/desktop-pet",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "description": "SPPet 透明桌宠悬浮窗与本地桥接",
   "author": "SCSldr",
@@ -9,6 +9,7 @@
     "dev": "electron .",
     "start": "electron .",
     "build": "node --check src/main.cjs && node --check src/preload.cjs && node --check src/renderer.js",
+    "test": "node --test test/*.test.cjs",
     "package:win": "pnpm run build && node scripts/package.mjs"
   },
   "devDependencies": {

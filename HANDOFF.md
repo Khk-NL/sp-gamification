@@ -2,7 +2,7 @@
 
 ## 当前阶段
 
-Phase 3 已完成，当前版本 `0.6.0`；下一阶段为 Phase 4（桌宠行为与 Ark-Pets 类交互）。
+Phase 4 已完成，当前版本 `0.7.0`；下一阶段为 Phase 5（AI 聊天与角色上下文）。
 
 ## 已完成
 
@@ -13,6 +13,8 @@ Phase 3 已完成，当前版本 `0.6.0`；下一阶段为 Phase 4（桌宠行�
 - SP 同步存储、桌宠本地桥接和旧 v3 存档迁移。
 - 战斗规则已按路线图收口，状态值会以四档明确倍率影响战斗 XP 与金币。
 - 背包、重复消耗品、商店轮换、技能强化和装备强化已形成完整金币消费路径。
+- 桌宠具备可选重力、底部站立、屏幕边缘吸附、多显示器约束和默认关闭的间歇行走。
+- AssetManager 统一加载内置/自定义角色，可切换、删除、预览和热重载 emoji、静态图、逐帧动画及状态音效。
 
 ## 重要文件
 
@@ -21,6 +23,7 @@ Phase 3 已完成，当前版本 `0.6.0`；下一阶段为 Phase 4（桌宠行�
 - `packages/core/src/engine.ts`：成长、奖励、状态迁移和当前战斗引擎。
 - `packages/sp-plugin/src/plugin.ts`：SP hooks、事件适配、持久化与本地/在线通信。
 - `packages/desktop-pet/src/main.cjs`：桌宠窗口、本地 WebSocket 与 IPC。
+- `packages/desktop-pet/src/asset-manager.cjs`：角色 manifest、资源校验、缓存、导入与回退。
 - `DEVELOP_LOG.md`：阶段审计和完成记录。
 
 ## 当前数据结构
@@ -37,9 +40,9 @@ Phase 3 已完成，当前版本 `0.6.0`；下一阶段为 Phase 4（桌宠行�
 
 - 高优先级任务暂以 SP 标签 `high`、`high priority`、`高优先级` 或 `重要` 判断；官方 Plugin API 当前暴露的任务类型没有稳定优先级字段。
 - Event Bus 已覆盖现实行为入口；战斗/商店 UI 命令仍由插件适配层调用 core，待对应模块拆分阶段继续迁移。
-- 桌宠高级物理、统一资源 manifest、AI、生产力模块、`/api/v1` 在线服务与更新器尚未完成。
+- 桌宠暂不识别其他应用窗口顶部；Spine/Live2D、多层实时换装、AI、生产力模块、`/api/v1` 在线服务与更新器尚未完成。
 - pnpm 当前运行时版本与已有 `node_modules` 元数据不一致，会尝试重装；本阶段使用仓库现有 `node_modules/.bin` 工具验证，没有重装依赖。
 
 ## 下一阶段
 
-Phase 4 在 Electron 技术栈内建立桌宠动作状态机和资源 manifest，不直接复制 GPL 项目代码。
+Phase 5 建立独立 AI Provider 边界、可编辑 System Prompt、御主档案、角色上下文和本地对话历史。

@@ -103,3 +103,29 @@
 ### 下一阶段
 
 - Phase 4：桌宠行为状态机、重力、底部站立、屏幕边缘吸附、多显示器和统一资源 manifest/AssetManager。
+
+## Phase 4：桌宠行为与 Ark-Pets 类交互（2026-09-12，v0.7.0）
+
+### 已完成
+
+- 保留 Electron 透明悬浮窗、置顶、鼠标穿透、右键菜单和系统托盘，不复制 Ark-Pets GPL 源码，仅采用动作状态机、物理与资源管理的设计思路。
+- 新增重力下落、桌面工作区底部站立、左右屏幕边缘吸附和按鼠标所在显示器约束的跨屏拖动。
+- 自动行走由用户明确开启，默认关闭；拖动由主进程真实光标坐标计算，相同坐标不更新窗口，避免静止漂移。
+- 新增角色 `manifest.json` 与 AssetManager。支持 emoji、PNG/WebP、GIF/APNG、多帧序列和 MP3/Ogg/WAV 状态音效，资源限制在角色目录且单文件不超过 15MB。
+- 预留 idle、walk、sleep、happy、sad、angry、tired、eat、touch、drag、fall、edge、battle、victory、defeat、talk；缺失状态和损坏的可选动画回退到 idle。
+- 自定义角色可导入文件夹、预览动作、切换和删除，复制保存到 `%APPDATA%\SPPet\characters`；文件监听会清除缓存并热重载。
+- manifest 与运行时结构预留 outfit、accessory、effect、sound 图层，首版允许切换完整资源组；美术目录拆分为角色、战斗、UI、天气和共享资源。
+
+### 验证
+
+- AssetManager 3 项测试覆盖缺失状态回退、角色导入/切换/删除、逐帧动画与越界资源拒绝。
+- 桌宠主进程、preload、renderer 语法检查通过；后续随阶段发布执行完整构建与便携包生成。
+
+### 已知边界
+
+- 当前落点为 Windows 工作区底部和显示器左右边缘，不识别其他应用窗口顶部。
+- Spine、Live2D、`.sppetpack`、多图层实时合成与天气渲染保留接口，按路线图后续阶段实现。
+
+### 下一阶段
+
+- Phase 5：独立 AI 模块、可编辑 System Prompt、御主档案、角色上下文和本地对话历史。

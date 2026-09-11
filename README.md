@@ -36,7 +36,7 @@ pnpm package:plugin
 生成：
 
 ```text
-packages\sp-plugin\release\SPPet-SP-v0.6.0.zip
+packages\sp-plugin\release\SPPet-SP-v0.7.0.zip
 ```
 
 在 Super Productivity“设置 → 插件 → 选择插件文件”中导入。最低支持 SP 18.21.2。
@@ -57,13 +57,14 @@ pnpm dev:pet
 pnpm package:pet
 ```
 
-解压 `SPPet-v0.6.0-win-x64.zip`，运行 `SPPet.exe`。桌宠默认只显示角色：
+解压 `SPPet-v0.7.0-win-x64.zip`，运行 `SPPet.exe`。桌宠默认只显示角色：
 
 - 悬停：显示 Lv、XP、状态值、streak、金币。
 - 左键：播放用户设置的互动台词。
 - 长时间未互动：间歇播放闲置台词。
 - 右键：显示菜单，再进入连接、皮肤、大小和置顶设置。
-- 按住角色左键：拖动桌宠；透明区域保持鼠标穿透，不影响其他窗口。
+- 按住角色左键：拖动桌宠；松手后可按重力落到底部并吸附屏幕边缘，多显示器按鼠标所在屏幕约束。
+- 右键设置可启用间歇行走，并导入、预览、切换或删除独立 `manifest.json` 角色包。
 
 自定义皮肤格式见 `packages/desktop-pet/CUSTOM_SKINS.md`。
 
