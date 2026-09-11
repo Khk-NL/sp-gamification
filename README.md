@@ -36,7 +36,7 @@ pnpm package:plugin
 生成：
 
 ```text
-packages\sp-plugin\release\SPPet-SP-v0.3.1.zip
+packages\sp-plugin\release\SPPet-SP-v0.3.2.zip
 ```
 
 在 Super Productivity“设置 → 插件 → 选择插件文件”中导入。最低支持 SP 18.21.2。
@@ -57,7 +57,7 @@ pnpm dev:pet
 pnpm package:pet
 ```
 
-解压 `SPPet-v0.3.1-win-x64.zip`，运行 `SPPet.exe`。桌宠默认只显示角色：
+解压 `SPPet-v0.3.2-win-x64.zip`，运行 `SPPet.exe`。桌宠默认只显示角色：
 
 - 悬停：显示 Lv、XP、状态值、streak、金币。
 - 左键：播放用户设置的互动台词。

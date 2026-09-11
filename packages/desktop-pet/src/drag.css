@@ -1,0 +1,30 @@
+.pet-zone {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.pet-zone:active,
+.pet-zone.dragging {
+  cursor: grabbing;
+}
+
+.pet-zone.dragging .pet {
+  animation: drag-step .24s steps(2) infinite;
+}
+
+.pet-zone.dragging .custom-sprite {
+  animation: drag-lift .14s ease-out both;
+}
+
+.pet-zone.drag-left .pet {
+  transform: translateX(-50%) scaleX(-1);
+}
+
+@keyframes drag-step {
+  50% { transform: translateX(-50%) translateY(-9px) rotate(2deg); }
+}
+
+@keyframes drag-lift {
+  to { transform: translateX(-50%) translateY(-8px); }
+}

@@ -15,7 +15,7 @@ const PET_SETTINGS_FILE = path.join(DATA_DIRECTORY, 'pet-settings.json');
 const PET_PROFILE_FILE = path.join(DATA_DIRECTORY, 'pet-profile.json');
 const BRIDGE_PORT = 47821;
 
-let windowRef, tray, watcher, readTimer, bridgeServer;
+let windowRef, tray, watcher, readTimer, bridgeServer, dragSession;
 let bridgeConnected = false, bridgeLastSync = null, lastEventId = null, initialized = false;
 
 const readJson = (file, fallback) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; } };
@@ -62,6 +62,18 @@ const createTray = () => { tray = new Tray(createTrayIcon()); tray.setToolTip('S
 
 if (!app.requestSingleInstanceLock()) app.quit(); else { app.on('second-instance', showWindow); app.whenReady().then(() => { fs.mkdirSync(DATA_DIRECTORY, { recursive: true }); migrateLegacyData(); createWindow(); createTray(); startBridgeServer(); watcher = fs.watch(DATA_DIRECTORY, (_event, filename) => { if (['state.json','events.json','pet-settings.json','pet-profile.json'].includes(String(filename))) scheduleRead(); }); }); }
 ipcMain.on('pet-hide', () => windowRef?.hide()); ipcMain.on('pet-close', () => app.quit()); ipcMain.on('pet-settings-open', (_event, open) => resizeForSettings(Boolean(open)));
+const validDragPoint = (point) => Number.isFinite(point?.screenX) && Number.isFinite(point?.screenY);
+const fromPetWindow = (event) => windowRef && !windowRef.isDestroyed() && event.sender === windowRef.webContents;
+ipcMain.on('pet-drag-start', (event, point) => {
+  if (!fromPetWindow(event) || !validDragPoint(point)) return;
+  const [windowX, windowY] = windowRef.getPosition();
+  dragSession = { pointerX: point.screenX, pointerY: point.screenY, windowX, windowY };
+});
+ipcMain.on('pet-drag-move', (event, point) => {
+  if (!fromPetWindow(event) || !dragSession || !validDragPoint(point)) return;
+  windowRef.setPosition(Math.round(dragSession.windowX + point.screenX - dragSession.pointerX), Math.round(dragSession.windowY + point.screenY - dragSession.pointerY), false);
+});
+ipcMain.on('pet-drag-end', (event) => { if (fromPetWindow(event)) dragSession = null; });
 ipcMain.handle('pet-select-skin', async () => { const result = await dialog.showOpenDialog(windowRef, { title: '选择桌宠 pet.json', properties: ['openFile'], filters: [{ name: 'Pet skin', extensions: ['json'] }] }); if (result.canceled || !result.filePaths[0]) return null; const skin = loadSkin(result.filePaths[0]); updatePetSettings({ skinJsonPath: result.filePaths[0] }); publishSnapshot(); return skin; });
 ipcMain.handle('pet-clear-skin', async () => { updatePetSettings({ skinJsonPath: null }); publishSnapshot(); return true; });
 ipcMain.handle('pet-set-top', async (_event, enabled) => { windowRef?.setAlwaysOnTop(Boolean(enabled)); updatePetSettings({ alwaysOnTop: Boolean(enabled) }); return Boolean(enabled); });

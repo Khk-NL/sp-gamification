@@ -5,7 +5,8 @@ const customSprite = document.getElementById('custom-sprite');
 const contextMenu = document.getElementById('context-menu');
 const settingsPanel = document.getElementById('settings-panel');
 const messageQueue = [];
-let snapshot = null, showingMessage = false, messageTimer = null, activeSkinId = null, frame = 0, lastInteraction = Date.now();
+let snapshot = null, showingMessage = false, messageTimer = null, activeSkinId = null, frame = 0, spriteState = 'idle', lastInteraction = Date.now();
+let dragGesture = null;
 let idleLines = ['休息一下也没关系。'], clickLines = ['收到！'];
 
 const randomLine = (values, fallback) => values.length ? values[Math.floor(Math.random() * values.length)] : fallback;
@@ -15,7 +16,7 @@ const showBubble = (content, duration = 3000, html = false) => { clearTimeout(me
 const playNext = () => { if (showingMessage || !messageQueue.length || settingsPanel.classList.contains('open')) return; showBubble(messageQueue.shift()); };
 const statsHtml = () => { const state = snapshot?.state; if (!state) return '<span>等待 Super Productivity…</span>'; const next = 100 + state.level * 25; return `<strong>Lv.${state.level}</strong><span>XP ${state.xp} / ${next}</span><br><em>◆ ${state.pet.condition}</em><span>🔥 ${state.streak} 天</span><span> ◈ ${state.coins}</span>`; };
 
-function renderSkin(skin) { const id = skin?.meta?.id || null; if (id === activeSkinId) return; activeSkinId = id; petZone.classList.toggle('custom', Boolean(skin)); if (skin) { customSprite.style.backgroundImage = `url("${skin.imageDataUrl}")`; customSprite.style.backgroundSize = skin.meta.spriteVersionNumber >= 2 ? '800% 1100%' : 'contain'; customSprite.title = skin.meta.displayName; } else { customSprite.style.backgroundImage = ''; customSprite.title = ''; } }
+function renderSkin(skin) { const id = skin?.meta?.id || null; if (id === activeSkinId) return; activeSkinId = id; frame = 0; spriteState = 'idle'; petZone.classList.toggle('custom', Boolean(skin)); if (skin) { customSprite.style.backgroundImage = `url("${skin.imageDataUrl}")`; customSprite.style.backgroundSize = skin.meta.spriteVersionNumber >= 2 ? '800% 1100%' : '800% 900%'; customSprite.style.backgroundPosition = '0% 0%'; customSprite.title = skin.meta.displayName; } else { customSprite.style.backgroundImage = ''; customSprite.title = ''; } }
 function render(next) {
   snapshot = next; idleLines = next.petProfile?.idleLines?.filter(Boolean) || idleLines; clickLines = next.petProfile?.clickLines?.filter(Boolean) || clickLines; renderSkin(next.skin);
   pet.className = `pet ${next.state?.pet?.skinPart || ''}`; const connected = Boolean(next.bridge?.connected); document.getElementById('connection').className = `connection ${connected ? 'connected' : ''}`; document.getElementById('connection').textContent = connected ? `● CONNECTED // 127.0.0.1:${next.bridge.port}` : `● DISCONNECTED // 127.0.0.1:${next.bridge?.port || 47821}`; document.getElementById('data-dir').textContent = next.dataDirectory || '';
@@ -26,11 +27,59 @@ function render(next) {
 window.petApi.onSnapshot(render);
 petZone.addEventListener('mouseenter', () => { lastInteraction = Date.now(); if (!showingMessage && !settingsPanel.classList.contains('open')) showBubble(statsHtml(), 60_000, true); });
 petZone.addEventListener('mouseleave', () => { lastInteraction = Date.now(); if (!messageQueue.length) { clearTimeout(messageTimer); bubble.classList.remove('show'); react(false); showingMessage = false; } });
-petZone.addEventListener('click', () => { lastInteraction = Date.now(); contextMenu.classList.remove('open'); showBubble(randomLine(clickLines, '收到！')); });
+const showClickLine = () => { lastInteraction = Date.now(); contextMenu.classList.remove('open'); showBubble(randomLine(clickLines, '收到！')); };
+const setDragVisual = (dragging, direction = null) => {
+  petZone.classList.toggle('dragging', dragging);
+  petZone.classList.toggle('drag-left', dragging && direction === 'left');
+  petZone.classList.toggle('drag-right', dragging && direction === 'right');
+  spriteState = dragging && direction ? `running-${direction}` : 'idle';
+  frame = 0;
+};
+petZone.addEventListener('pointerdown', (event) => {
+  if (event.button !== 0 || settingsPanel.classList.contains('open')) return;
+  event.preventDefault();
+  petZone.setPointerCapture?.(event.pointerId);
+  dragGesture = { pointerId: event.pointerId, startX: event.screenX, startY: event.screenY, lastX: event.screenX, moved: false };
+});
+petZone.addEventListener('pointermove', (event) => {
+  if (!dragGesture || dragGesture.pointerId !== event.pointerId) return;
+  const dx = event.screenX - dragGesture.startX, dy = event.screenY - dragGesture.startY;
+  if (!dragGesture.moved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+  if (!dragGesture.moved) {
+    dragGesture.moved = true;
+    window.petApi.dragStart({ screenX: dragGesture.startX, screenY: dragGesture.startY });
+    setDragVisual(true);
+  }
+  const direction = event.screenX < dragGesture.lastX ? 'left' : event.screenX > dragGesture.lastX ? 'right' : null;
+  if (direction) setDragVisual(true, direction);
+  dragGesture.lastX = event.screenX;
+  window.petApi.dragMove({ screenX: event.screenX, screenY: event.screenY });
+});
+const finishPointerGesture = (event, cancelled = false) => {
+  if (!dragGesture || dragGesture.pointerId !== event.pointerId) return;
+  const moved = dragGesture.moved;
+  dragGesture = null;
+  if (petZone.hasPointerCapture?.(event.pointerId)) petZone.releasePointerCapture(event.pointerId);
+  if (moved) window.petApi.dragEnd();
+  setDragVisual(false);
+  lastInteraction = Date.now();
+  if (!moved && !cancelled) showClickLine();
+};
+petZone.addEventListener('pointerup', (event) => finishPointerGesture(event));
+petZone.addEventListener('pointercancel', (event) => finishPointerGesture(event, true));
+petZone.addEventListener('lostpointercapture', (event) => finishPointerGesture(event, true));
 document.body.addEventListener('contextmenu', (event) => { event.preventDefault(); lastInteraction = Date.now(); contextMenu.classList.toggle('open'); });
 document.body.addEventListener('click', (event) => { if (!event.target.closest('#context-menu') && !event.target.closest('#pet-zone')) contextMenu.classList.remove('open'); });
 setInterval(() => { if (Date.now() - lastInteraction > 45_000 && !showingMessage && !settingsPanel.classList.contains('open') && Math.random() < .38) { showBubble(randomLine(idleLines, '我会在这里等你。')); lastInteraction = Date.now(); } }, 12_000);
-setInterval(() => { if (!activeSkinId || customSprite.style.backgroundSize === 'contain') return; frame = (frame + 1) % 7; customSprite.style.backgroundPosition = `${(frame % 8) / 7 * 100}% 0%`; }, 220);
+setInterval(() => {
+  if (!activeSkinId) return;
+  const isRunning = spriteState === 'running-left' || spriteState === 'running-right';
+  const row = spriteState === 'running-right' ? 1 : spriteState === 'running-left' ? 2 : 0;
+  const rowCount = Number(snapshot?.skin?.meta?.spriteVersionNumber || 1) >= 2 ? 11 : 9;
+  const frameCount = isRunning ? 8 : 6;
+  frame = (frame + 1) % frameCount;
+  customSprite.style.backgroundPosition = `${frame / 7 * 100}% ${row / (rowCount - 1) * 100}%`;
+}, 120);
 
 const openSettings = () => { contextMenu.classList.remove('open'); settingsPanel.classList.add('open'); window.petApi.setSettingsOpen(true); };
 const closeSettings = () => { settingsPanel.classList.remove('open'); window.petApi.setSettingsOpen(false); };
