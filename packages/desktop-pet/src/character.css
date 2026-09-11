@@ -45,5 +45,7 @@
 .chat-entry.user { border-left-color: #e99a38; }
 .history-entry time { display: block; color: #617681; font-size: 11px; }
 .history-entry button { margin-top: 7px; }
+.focus-clock { margin: 12px 0 4px; color: #0b7899; font: 900 46px/1 "Arial Black", "Segoe UI", sans-serif; letter-spacing: .04em; text-align: center; }
+#focus-panel .row { flex-wrap: wrap; }
 .settings-panel select { width: 100%; padding: 8px; border: 1px solid #555b60; background: #171a1d; color: #fff; font: 12px "Arial Black", "Microsoft YaHei", sans-serif; }
 @keyframes character-walk { 50% { transform: translateX(-50%) translateY(-7px) rotate(3deg); } }

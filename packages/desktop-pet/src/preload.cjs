@@ -21,6 +21,9 @@ contextBridge.exposeInMainWorld('petApi', {
   updateAwarenessSettings: (changes) => ipcRenderer.invoke('awareness-update-settings', changes),
   readCurrentWindow: () => ipcRenderer.invoke('awareness-read-window'),
   analyzeScreen: () => ipcRenderer.invoke('awareness-vision'),
+  updateFocusSettings: (changes) => ipcRenderer.invoke('focus-update-settings', changes),
+  startFocus: () => ipcRenderer.invoke('focus-start'),
+  cancelFocus: () => ipcRenderer.invoke('focus-cancel'),
   setSettingsOpen: (open) => ipcRenderer.send('pet-settings-open', open),
   setInteractive: (interactive) => ipcRenderer.send('pet-set-interactive', interactive),
   dragStart: () => ipcRenderer.send('pet-drag-start'),
@@ -47,4 +50,7 @@ contextBridge.exposeInMainWorld('petApi', {
     ipcRenderer.on('pet-motion-state', listener);
     return () => ipcRenderer.removeListener('pet-motion-state', listener);
   },
+  onFocusSnapshot: (handler) => { const listener = (_event, value) => handler(value); ipcRenderer.on('focus-snapshot', listener); return () => ipcRenderer.removeListener('focus-snapshot', listener); },
+  onFocusCompleted: (handler) => { const listener = (_event, value) => handler(value); ipcRenderer.on('focus-completed', listener); return () => ipcRenderer.removeListener('focus-completed', listener); },
+  onFocusWindowCategory: (handler) => { const listener = (_event, value) => handler(value); ipcRenderer.on('focus-window-category', listener); return () => ipcRenderer.removeListener('focus-window-category', listener); },
 });

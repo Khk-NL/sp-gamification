@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_CONTENT, EventBus, advanceBattleStory, checkIn, claimMapReward, conditionRewardMultiplier, createInitialState, endTurn, getComputedStats, normalizeContent, onDailyReviewCompleted, onDayChecked, onFocusTimeAdded, onPetConnectionChecked, onPetTouched, onTaskCompleted, purchaseItem, equipItem, refreshShop, seedFocusTime, setEquippedSkills, setPlayMode, startBattle, startBattleAt, upgradeEquipment, upgradeSkill, useItem, useSkill } from '../dist/index.js';
+import { DEFAULT_CONTENT, EventBus, advanceBattleStory, checkIn, claimMapReward, conditionRewardMultiplier, createInitialState, endTurn, getComputedStats, normalizeContent, onDailyReviewCompleted, onDayChecked, onFocusSessionCompleted, onFocusTimeAdded, onPetConnectionChecked, onPetTouched, onTaskCompleted, purchaseItem, equipItem, refreshShop, seedFocusTime, setEquippedSkills, setPlayMode, startBattle, startBattleAt, upgradeEquipment, upgradeSkill, useItem, useSkill } from '../dist/index.js';
 
 test('任务不直接发金币经验，完成委托后发经验且任务不重复结算', () => {
   let state = createInitialState('2026-09-10T08:00:00+08:00');
@@ -25,6 +25,15 @@ test('漏登每天扣 10 状态，状态耗尽后扣 HP，且同日不重复', (
 
 test('专注按观察差值推进委托且不重复', () => {
   let state = seedFocusTime(createInitialState(), 'task-1', 60).state; state = onFocusTimeAdded(state, { sourceId: 'task-1', sourceTotalMinutes: 119 }).state; assert.equal(state.xp, 0); const reward = onFocusTimeAdded(state, { sourceId: 'task-1', sourceTotalMinutes: 120 }); assert.equal(reward.state.xp, 30); const duplicate = onFocusTimeAdded(reward.state, { sourceId: 'task-1', sourceTotalMinutes: 120 }); assert.equal(duplicate.state.totalFocusMinutes, 60); assert.equal(duplicate.events.length, 0);
+});
+
+test('桌宠专注计时奖励去重且每日最多结算四次', () => {
+  let state = createInitialState('2026-09-12T08:00:00'); state.pet.condition = 50;
+  const first = onFocusSessionCompleted(state, { sessionId: 'focus-1', minutes: 25, occurredAt: '2026-09-12T09:00:00' });
+  assert.equal(first.state.xp, 10); assert.equal(first.state.coins, 4); assert.equal(first.state.pet.condition, 57); assert.equal(first.state.totalFocusMinutes, 25);
+  const duplicate = onFocusSessionCompleted(first.state, { sessionId: 'focus-1', minutes: 25, occurredAt: '2026-09-12T09:30:00' }); assert.equal(duplicate.events.length, 0); assert.equal(duplicate.state.totalFocusMinutes, 25);
+  state = first.state; for (let index = 2; index <= 5; index += 1) state = onFocusSessionCompleted(state, { sessionId: `focus-${index}`, minutes: 5, occurredAt: '2026-09-12T10:00:00' }).state;
+  assert.equal(state.today.focusTimerRewards, 4); assert.equal(state.xp, 40); assert.equal(state.processedFocusSessionIds.length, 5);
 });
 
 test('签到奖励随连续签到增加且同日只领一次', () => {

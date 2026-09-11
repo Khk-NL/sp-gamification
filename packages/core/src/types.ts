@@ -17,7 +17,7 @@ export interface EnemyDefinition { id: string; name: string; nameEn: string; ele
 export interface ChapterDefinition { id: string; name: string; nameEn: string; summary: string; enemies: EnemyDefinition[]; }
 export interface GameContent { version: number; skills: SkillDefinition[]; items: ItemDefinition[]; chapters: ChapterDefinition[]; }
 
-export type SPPetEventType = 'TASK_COMPLETED' | 'FOCUS_SESSION_FINISHED' | 'DAILY_COMMISSION_COMPLETED' | 'COMMISSION_COMPLETED' | 'DAILY_CHECK_IN' | 'CHECK_IN' | 'COURSE_STARTING' | 'GOAL_PROGRESS_UPDATED' | 'IMPORTANT_DATE_APPROACHING' | 'JOURNAL_CREATED' | 'ITEM_USED' | 'PET_FED' | 'PET_TOUCHED' | 'BATTLE_STARTED' | 'BATTLE_WON' | 'BATTLE_LOST' | 'AFFINITY_CHANGED' | 'STATUS_CHANGED' | 'LEVEL_UP' | 'ACTIVE_WINDOW_CHANGED' | 'SYSTEM_LOAD_HIGH' | 'NETWORK_CHANGED' | 'STREAK_UPDATED' | 'MAP_REWARD_CLAIMED' | 'SKILL_USED' | 'SKILL_UPGRADED' | 'EQUIPMENT_UPGRADED' | 'SHOP_REFRESHED' | 'ENEMY_ACTION' | 'CHAPTER_COMPLETED' | 'ITEM_PURCHASED' | 'ITEM_EQUIPPED' | 'PET_CONDITION_CHANGED' | 'PLAY_MODE_CHANGED' | 'DEBUG_XP' | 'DEBUG_COINS' | 'STATE_RESET';
+export type SPPetEventType = 'TASK_COMPLETED' | 'FOCUS_SESSION_FINISHED' | 'FOCUS_TIMER_COMPLETED' | 'DAILY_COMMISSION_COMPLETED' | 'COMMISSION_COMPLETED' | 'DAILY_CHECK_IN' | 'CHECK_IN' | 'COURSE_STARTING' | 'GOAL_PROGRESS_UPDATED' | 'IMPORTANT_DATE_APPROACHING' | 'JOURNAL_CREATED' | 'ITEM_USED' | 'PET_FED' | 'PET_TOUCHED' | 'BATTLE_STARTED' | 'BATTLE_WON' | 'BATTLE_LOST' | 'AFFINITY_CHANGED' | 'STATUS_CHANGED' | 'LEVEL_UP' | 'ACTIVE_WINDOW_CHANGED' | 'SYSTEM_LOAD_HIGH' | 'NETWORK_CHANGED' | 'STREAK_UPDATED' | 'MAP_REWARD_CLAIMED' | 'SKILL_USED' | 'SKILL_UPGRADED' | 'EQUIPMENT_UPGRADED' | 'SHOP_REFRESHED' | 'ENEMY_ACTION' | 'CHAPTER_COMPLETED' | 'ITEM_PURCHASED' | 'ITEM_EQUIPPED' | 'PET_CONDITION_CHANGED' | 'PLAY_MODE_CHANGED' | 'DEBUG_XP' | 'DEBUG_COINS' | 'STATE_RESET';
 export interface SPPetEvent { id: string; type: SPPetEventType; timestamp: string; payload: Record<string, string | number | boolean | null>; }
 export interface BattleState {
   enemyId: string; enemyName: string; enemyHp: number; enemyMaxHp: number; enemyDefense: number; enemyResistances: Resistances;
@@ -27,9 +27,9 @@ export interface BattleState {
   phase: 'story_before' | 'combat' | 'story_after'; storyIndex: number; rewardsClaimed: boolean;
 }
 export interface SPPetState {
-  version: 5; mode: PlayMode; level: number; xp: number; coins: number; streak: number; lastActiveDate: string | null; lastLoginDate: string | null;
-  totalTasksCompleted: number; totalFocusMinutes: number; totalBattlesWon: number; today: { date: string; tasksCompleted: number; xpEarned: number; focusRewardSteps: number };
-  processedTaskIds: string[]; observedFocusMinutesByTask: Record<string, number>;
+  version: 6; mode: PlayMode; level: number; xp: number; coins: number; streak: number; lastActiveDate: string | null; lastLoginDate: string | null;
+  totalTasksCompleted: number; totalFocusMinutes: number; totalBattlesWon: number; today: { date: string; tasksCompleted: number; xpEarned: number; focusRewardSteps: number; focusTimerRewards: number };
+  processedTaskIds: string[]; processedFocusSessionIds: string[]; observedFocusMinutesByTask: Record<string, number>;
   commissions: { date: string; tasks: { progress: number; target: number; claimed: boolean }; focus: { progress: number; target: number; claimed: boolean }; priority: { progress: number; target: number; claimed: boolean }; review: { progress: number; target: number; claimed: boolean } };
   checkIn: { lastDate: string | null; streak: number };
   pet: {
@@ -45,6 +45,7 @@ export interface SPPetState {
   updatedAt: string;
 }
 export interface EngineResult { state: SPPetState; events: SPPetEvent[]; }
-export interface GameRules { commissionTaskTarget?: number; commissionTaskXp?: number; commissionFocusTarget?: number; commissionFocusXp?: number; commissionPriorityXp?: number; commissionReviewXp?: number; dailyXpCap?: number; disconnectDecayMinutes?: number; disconnectDecayAmount?: number; }
+export interface GameRules { commissionTaskTarget?: number; commissionTaskXp?: number; commissionFocusTarget?: number; commissionFocusXp?: number; commissionPriorityXp?: number; commissionReviewXp?: number; dailyXpCap?: number; disconnectDecayMinutes?: number; disconnectDecayAmount?: number; focusTimerDailyCap?: number; focusTimerXp?: number; focusTimerCoins?: number; focusTimerCondition?: number; }
 export interface TaskCompletedInput { taskId: string; highPriority?: boolean; occurredAt?: Date | string | number; rules?: GameRules; }
 export interface FocusTimeInput { minutes?: number; sourceId?: string; sourceTotalMinutes?: number; occurredAt?: Date | string | number; rules?: GameRules; }
+export interface FocusSessionCompletedInput { sessionId: string; minutes: number; occurredAt?: Date | string | number; rules?: GameRules; }

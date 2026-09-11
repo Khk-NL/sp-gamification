@@ -15,6 +15,7 @@ import {
   onDayChecked,
   onDailyReviewCompleted,
   onFocusTimeAdded,
+  onFocusSessionCompleted,
   onPetConnectionChecked,
   onPetTouched,
   onTaskCompleted,
@@ -80,6 +81,7 @@ let lastLeaderboardSubmit = 0;
 interface CoreEvents {
   TASK_COMPLETED: { taskId: string; highPriority: boolean; occurredAt?: Date | string | number };
   FOCUS_SESSION_FINISHED: { sourceId: string; sourceTotalMinutes: number };
+  DESKTOP_FOCUS_COMPLETED: { sessionId: string; minutes: number; occurredAt?: string };
   DAILY_REVIEW_COMPLETED: { occurredAt?: Date | string | number };
   DAILY_CHECK_IN: Record<string, never>;
   PET_CONNECTION_CHANGED: { connected: boolean };
@@ -117,7 +119,7 @@ const connectBridge = (): void => {
   try {
     socket = new WebSocket(PET_BRIDGE_URL);
     socket.addEventListener('open', () => { bridgeStatus = 'connected'; registerConnection(true); sendBridgeSnapshot(); });
-    socket.addEventListener('message', (message) => { try { const payload = JSON.parse(String(message.data)); if (payload.type === 'ACK') { bridgeLastAck = typeof payload.receivedAt === 'string' ? payload.receivedAt : new Date().toISOString(); const received = new Set(Array.isArray(payload.eventIds) ? payload.eventIds : []); pendingEvents = pendingEvents.filter((entry) => !received.has(entry.id)); } else if (payload.type === 'PET_TOUCHED') void coreEvents.emit('PET_TOUCHED', {}); } catch { /* Local malformed frames are ignored. */ } });
+    socket.addEventListener('message', (message) => { void (async () => { try { const payload = JSON.parse(String(message.data)); if (payload.type === 'ACK') { bridgeLastAck = typeof payload.receivedAt === 'string' ? payload.receivedAt : new Date().toISOString(); const received = new Set(Array.isArray(payload.eventIds) ? payload.eventIds : []); pendingEvents = pendingEvents.filter((entry) => !received.has(entry.id)); } else if (payload.type === 'PET_TOUCHED') await coreEvents.emit('PET_TOUCHED', {}); else if (payload.type === 'FOCUS_TIMER_COMPLETED') { const sessionId = String(payload.sessionId || ''); await coreEvents.emit('DESKTOP_FOCUS_COMPLETED', { sessionId, minutes: Number(payload.minutes), occurredAt: typeof payload.occurredAt === 'string' ? payload.occurredAt : undefined }); if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'DESKTOP_EVENT_ACK', eventType: payload.type, sessionId })); } } catch { /* Local malformed frames are ignored. */ } })(); });
     socket.addEventListener('close', () => { const wasConnected = bridgeStatus === 'connected'; bridgeStatus = 'disconnected'; socket = null; if (wasConnected) registerConnection(false); scheduleReconnect(); });
     socket.addEventListener('error', () => { bridgeStatus = 'disconnected'; });
   } catch { bridgeStatus = 'disconnected'; scheduleReconnect(); }
@@ -138,6 +140,7 @@ const seedTask = (task: SpTask | null | undefined): Promise<SPPetState> => !task
 
 coreEvents.on('TASK_COMPLETED', async (payload) => { await runEngine((current, cfg) => onTaskCompleted(current, { ...payload, rules: cfg })); });
 coreEvents.on('FOCUS_SESSION_FINISHED', async (payload) => { await runEngine((current, cfg) => onFocusTimeAdded(current, { ...payload, rules: cfg })); });
+coreEvents.on('DESKTOP_FOCUS_COMPLETED', async (payload) => { await runEngine((current, cfg) => onFocusSessionCompleted(current, { ...payload, rules: cfg })); });
 coreEvents.on('DAILY_REVIEW_COMPLETED', async (payload) => { await runEngine((current, cfg) => onDailyReviewCompleted(current, payload.occurredAt, cfg)); });
 coreEvents.on('DAILY_CHECK_IN', async () => { await runEngine((current) => checkIn(current)); });
 coreEvents.on('PET_CONNECTION_CHANGED', async (payload) => { await runEngine((current, cfg) => onPetConnectionChecked(current, payload.connected, undefined, cfg)); });
