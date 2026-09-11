@@ -6,6 +6,9 @@ const asDate = (value?: Date | string | number): Date => { const date = value in
 export const localDateKey = (value?: Date | string | number): string => { const date = asDate(value); return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-'); };
 const nonNegativeInt = (value: unknown, fallback = 0): number => typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.floor(value)) : fallback;
 const positiveInt = (value: unknown, fallback: number): number => Math.max(1, nonNegativeInt(value, fallback));
+const stringArray = (value: unknown, max: number): string[] => Array.isArray(value) ? [...new Set(value.filter((entry): entry is string => typeof entry === 'string' && Boolean(entry)))].slice(-max) : [];
+const damageTypes: DamageType[] = ['physical', 'fire', 'water', 'ice', 'electric'];
+const damageType = (value: unknown): DamageType | null => typeof value === 'string' && damageTypes.includes(value as DamageType) ? value as DamageType : null;
 const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
 const dateDistance = (from: string, to: string): number => { const parse = (value: string) => { const [y, m, d] = value.split('-').map(Number); return Date.UTC(y, m - 1, d); }; return Math.round((parse(to) - parse(from)) / 86_400_000); };
 const event = (type: SPPetEventType, payload: SPPetEvent['payload'], now: Date): SPPetEvent => ({ id: globalThis.crypto?.randomUUID?.() ?? `${now.getTime()}-${type}-${Math.random().toString(36).slice(2, 9)}`, type, timestamp: now.toISOString(), payload });
@@ -16,7 +19,7 @@ const commissionsFor = (date: string, rules: Required<GameRules>) => ({ date, ta
 
 export const createInitialState = (now?: Date | string | number): SPPetState => {
   const date = asDate(now); const day = localDateKey(date); const rules = DEFAULT_RULES;
-  return { version: 3, level: 1, xp: 0, coins: 0, streak: 0, lastActiveDate: null, totalTasksCompleted: 0, totalFocusMinutes: 0, totalBattlesWon: 0, today: { date: day, tasksCompleted: 0 }, processedTaskIds: [], observedFocusMinutesByTask: {}, commissions: commissionsFor(day, rules), checkIn: { lastDate: null, streak: 0 }, pet: { name: 'PRTS-β', condition: 100, hp: 100, baseStats: { maxHp: 100, attack: 12, defense: 5, resistances: { ...ZERO_RESISTANCE } }, learnedSkills: ['strike', 'brace'], inventory: {}, equipped: { weapon: null, armor: null, accessory: null }, skinPart: null, buff: { xpBonus: 0, coinBonus: 0, attackBonus: 0, battlesRemaining: 0 }, lastConnectedAt: date.toISOString(), lastConditionDecayAt: date.toISOString() }, adventure: { chapterIndex: 0, encounterIndex: 0, activeBattle: null }, updatedAt: date.toISOString() };
+  return { version: 3, level: 1, xp: 0, coins: 0, streak: 0, lastActiveDate: null, totalTasksCompleted: 0, totalFocusMinutes: 0, totalBattlesWon: 0, today: { date: day, tasksCompleted: 0 }, processedTaskIds: [], observedFocusMinutesByTask: {}, commissions: commissionsFor(day, rules), checkIn: { lastDate: null, streak: 0 }, pet: { name: 'PRTS-β', condition: 100, hp: 100, baseStats: { maxHp: 100, attack: 12, defense: 5, resistances: { ...ZERO_RESISTANCE } }, learnedSkills: ['strike', 'brace'], inventory: {}, equipped: { weapon: null, armor: null, accessory: null }, skinPart: null, buff: { xpBonus: 0, coinBonus: 0, attackBonus: 0, battlesRemaining: 0 }, lastConnectedAt: date.toISOString(), lastConditionDecayAt: date.toISOString() }, adventure: { chapterIndex: 0, encounterIndex: 0, claimedMapRewards: [], activeBattle: null }, updatedAt: date.toISOString() };
 };
 
 export const hydrateState = (input: unknown, now?: Date | string | number, rulesInput?: GameRules): SPPetState => {
@@ -34,7 +37,7 @@ export const hydrateState = (input: unknown, now?: Date | string | number, rules
     commissions: { date: commissions.date, tasks: { progress: nonNegativeInt(commissions.tasks?.progress), target: positiveInt(commissions.tasks?.target, rules.commissionTaskTarget), claimed: Boolean(commissions.tasks?.claimed) }, focus: { progress: nonNegativeInt(commissions.focus?.progress), target: positiveInt(commissions.focus?.target, rules.commissionFocusTarget), claimed: Boolean(commissions.focus?.claimed) } },
     checkIn: { lastDate: typeof value.checkIn?.lastDate === 'string' ? value.checkIn.lastDate : null, streak: nonNegativeInt(value.checkIn?.streak) },
     pet: { name: typeof pet.name === 'string' && pet.name.trim() ? pet.name.slice(0, 20) : initial.pet.name, condition: clamp(nonNegativeInt(pet.condition, 100), 0, 100), hp: nonNegativeInt(pet.hp, 100), baseStats: { maxHp: positiveInt(pet.baseStats?.maxHp, 100), attack: positiveInt(pet.baseStats?.attack, 12), defense: nonNegativeInt(pet.baseStats?.defense, 5), resistances: { ...ZERO_RESISTANCE, ...(pet.baseStats?.resistances ?? {}) } }, learnedSkills: Array.isArray(pet.learnedSkills) ? [...new Set(['strike', 'brace', ...pet.learnedSkills.filter((id): id is string => typeof id === 'string')])] : ['strike', 'brace'], inventory, equipped: { weapon: typeof pet.equipped?.weapon === 'string' ? pet.equipped.weapon : null, armor: typeof pet.equipped?.armor === 'string' ? pet.equipped.armor : null, accessory: typeof pet.equipped?.accessory === 'string' ? pet.equipped.accessory : value.equippedAccessory ?? null }, skinPart: typeof pet.skinPart === 'string' ? pet.skinPart : null, buff: { xpBonus: nonNegativeInt(pet.buff?.xpBonus), coinBonus: nonNegativeInt(pet.buff?.coinBonus), attackBonus: nonNegativeInt(pet.buff?.attackBonus), battlesRemaining: nonNegativeInt(pet.buff?.battlesRemaining) }, lastConnectedAt: typeof pet.lastConnectedAt === 'string' ? pet.lastConnectedAt : nowIso, lastConditionDecayAt: typeof pet.lastConditionDecayAt === 'string' ? pet.lastConditionDecayAt : nowIso },
-    adventure: { chapterIndex: nonNegativeInt(value.adventure?.chapterIndex), encounterIndex: nonNegativeInt(value.adventure?.encounterIndex), activeBattle: value.adventure?.activeBattle && typeof value.adventure.activeBattle === 'object' ? { ...value.adventure.activeBattle, phase: value.adventure.activeBattle.phase ?? 'combat', storyIndex: nonNegativeInt(value.adventure.activeBattle.storyIndex), rewardsClaimed: Boolean(value.adventure.activeBattle.rewardsClaimed) } : null }, updatedAt: typeof value.updatedAt === 'string' ? value.updatedAt : nowIso,
+    adventure: { chapterIndex: nonNegativeInt(value.adventure?.chapterIndex), encounterIndex: nonNegativeInt(value.adventure?.encounterIndex), claimedMapRewards: stringArray(value.adventure?.claimedMapRewards, 200), activeBattle: value.adventure?.activeBattle && typeof value.adventure.activeBattle === 'object' ? { ...value.adventure.activeBattle, enemyBlockType: damageType(value.adventure.activeBattle.enemyBlockType), playerBlockType: damageType(value.adventure.activeBattle.playerBlockType), phase: value.adventure.activeBattle.phase ?? 'combat', storyIndex: nonNegativeInt(value.adventure.activeBattle.storyIndex), rewardsClaimed: Boolean(value.adventure.activeBattle.rewardsClaimed) } : null }, updatedAt: typeof value.updatedAt === 'string' ? value.updatedAt : nowIso,
   };
 };
 
@@ -98,13 +101,28 @@ export const getBattleStory = (stateInput: SPPetState, contentInput?: GameConten
 
 export const startBattle = (current: SPPetState, contentInput?: GameContent, occurredAt?: Date | string | number): EngineResult => {
   const now = asDate(occurredAt); const state = hydrateState(current, now); if (state.adventure.activeBattle) return { state, events: [] }; const content = normalizeContent(contentInput ?? DEFAULT_CONTENT); const enemy = enemyAt(state, content); const stats = getComputedStats(state, content); state.pet.hp = clamp(state.pet.hp || Math.ceil(stats.maxHp * .35), 1, stats.maxHp);
-  state.adventure.activeBattle = { enemyId: enemy.id, enemyName: enemy.name, enemyHp: enemy.maxHp, enemyMaxHp: enemy.maxHp, enemyDefense: enemy.defense, enemyResistances: { ...enemy.resistances }, enemyAttack: enemy.attack, enemyBlock: 0, enemyAttackBuff: 0, playerBlock: 0, enemyBurn: 0, enemyWeaken: 0, turn: 1, resource: 1, maxResource: 1, intentIndex: 0, log: [`侦测到目标：${enemy.name}`], phase: 'story_before', storyIndex: 0, rewardsClaimed: false };
-  touch(state, now); return { state, events: [event('BATTLE_STARTED', { enemy: enemy.name, boss: Boolean(enemy.isBoss) }, now)] };
+  state.adventure.activeBattle = { enemyId: enemy.id, enemyName: enemy.name, enemyHp: enemy.maxHp, enemyMaxHp: enemy.maxHp, enemyDefense: enemy.defense, enemyResistances: { ...enemy.resistances }, enemyAttack: enemy.attack, enemyBlock: 0, enemyBlockType: null, enemyAttackBuff: 0, playerBlock: 0, playerBlockType: null, enemyBurn: 0, enemyWeaken: 0, turn: 1, resource: 1, maxResource: 1, intentIndex: 0, log: [`侦测到目标：${enemy.name}（${enemy.element ?? 'physical'}）`], phase: 'story_before', storyIndex: 0, rewardsClaimed: false };
+  touch(state, now); return { state, events: [event('BATTLE_STARTED', { enemy: enemy.name, element: enemy.element ?? 'physical', boss: Boolean(enemy.isBoss) }, now)] };
+};
+
+export const startBattleAt = (current: SPPetState, encounterIndex: number, contentInput?: GameContent, occurredAt?: Date | string | number): EngineResult => {
+  const now = asDate(occurredAt); const state = hydrateState(current, now); if (nonNegativeInt(encounterIndex) !== state.adventure.encounterIndex) return { state, events: [] };
+  return startBattle(state, contentInput, now);
+};
+
+export const claimMapReward = (current: SPPetState, rewardIndex: number, contentInput?: GameContent, occurredAt?: Date | string | number): EngineResult => {
+  const now = asDate(occurredAt); const state = hydrateState(current, now); if (state.adventure.activeBattle) return { state, events: [] };
+  const content = normalizeContent(contentInput ?? DEFAULT_CONTENT); const chapter = content.chapters[state.adventure.chapterIndex % content.chapters.length]; const index = nonNegativeInt(rewardIndex);
+  if (index >= chapter.enemies.length || index > state.adventure.encounterIndex) return { state, events: [] };
+  const rewardId = `${chapter.id}:${index}`; if (state.adventure.claimedMapRewards.includes(rewardId)) return { state, events: [] };
+  const coins = 4 + index * 3; const heal = 6 + index * 2; const maxHp = getComputedStats(state, content).maxHp;
+  state.coins += coins; state.pet.hp = Math.min(maxHp, state.pet.hp + heal); state.adventure.claimedMapRewards = [...state.adventure.claimedMapRewards, rewardId].slice(-200); touch(state, now);
+  return { state, events: [event('MAP_REWARD_CLAIMED', { rewardId, chapter: chapter.id, index, coins, heal, hp: state.pet.hp }, now)] };
 };
 
 const finishEncounter = (state: SPPetState, content: GameContent, now: Date, events: SPPetEvent[]): void => {
   const chapter = content.chapters[state.adventure.chapterIndex % content.chapters.length]; state.adventure.encounterIndex += 1;
-  if (state.adventure.encounterIndex >= chapter.enemies.length) { events.push(event('CHAPTER_COMPLETED', { chapter: chapter.name }, now)); state.adventure.encounterIndex = 0; state.adventure.chapterIndex = (state.adventure.chapterIndex + 1) % content.chapters.length; }
+  if (state.adventure.encounterIndex >= chapter.enemies.length) { events.push(event('CHAPTER_COMPLETED', { chapter: chapter.name }, now)); state.adventure.claimedMapRewards = state.adventure.claimedMapRewards.filter((id) => !id.startsWith(`${chapter.id}:`)); state.adventure.encounterIndex = 0; state.adventure.chapterIndex = (state.adventure.chapterIndex + 1) % content.chapters.length; }
   state.adventure.activeBattle = null;
 };
 
@@ -116,23 +134,33 @@ export const advanceBattleStory = (current: SPPetState, skip = false, contentInp
 
 const reduceByBlock = (damage: number, block: number): [number, number] => { const absorbed = Math.min(damage, block); return [damage - absorbed, block - absorbed]; };
 const finalDamage = (raw: number, defense: number, resistance: number): number => Math.max(1, Math.round(Math.max(1, raw - defense) * (1 - clamp(resistance, -50, 80) / 100)));
+const strongAgainst: Partial<Record<DamageType, DamageType>> = { fire: 'ice', ice: 'electric', electric: 'water', water: 'fire' };
+const elementMultiplier = (attack: DamageType, target: DamageType | null, shield: boolean): number => {
+  if (attack === 'physical' || target === null || target === 'physical') return 1;
+  if (attack === target) return shield ? .65 : 1;
+  if (strongAgainst[attack] === target) return 1.5;
+  if (strongAgainst[target] === attack) return .75;
+  return 1;
+};
+const multiplierText = (multiplier: number): string => `属性倍率 ×${multiplier.toFixed(2)}`;
 const consumeBattleBuff = (state: SPPetState): void => { if (state.pet.buff.battlesRemaining > 0) state.pet.buff.battlesRemaining -= 1; if (!state.pet.buff.battlesRemaining) state.pet.buff = { xpBonus: 0, coinBonus: 0, attackBonus: 0, battlesRemaining: 0 }; };
 
 export const useSkill = (current: SPPetState, skillId: string, contentInput?: GameContent, occurredAt?: Date | string | number): EngineResult => {
   const now = asDate(occurredAt); const state = hydrateState(current, now); const content = normalizeContent(contentInput ?? DEFAULT_CONTENT); const battle = state.adventure.activeBattle; if (!battle || battle.phase !== 'combat') return { state, events: [] };
   const skill = content.skills.find((entry) => entry.id === skillId); if (!skill || !state.pet.learnedSkills.includes(skillId) || skill.cost > battle.resource) return { state, events: [] };
   const stats = getComputedStats(state, content); battle.resource -= skill.cost; const conditionFactor = state.pet.condition < 50 ? .8 + state.pet.condition / 250 : 1; let dealt = 0;
-  if ((skill.power ?? 0) > 0) { const raw = stats.attack * (skill.power ?? 0) * conditionFactor * (1 + (stats.damageBonus[skill.type] ?? 0) / 100); dealt = finalDamage(raw, skill.type === 'physical' ? battle.enemyDefense : Math.floor(battle.enemyDefense / 2), battle.enemyResistances[skill.type]); const reduced = reduceByBlock(dealt, battle.enemyBlock); dealt = reduced[0]; battle.enemyBlock = reduced[1]; battle.enemyHp = Math.max(0, battle.enemyHp - dealt); }
-  if (skill.block) battle.playerBlock += skill.block; if (skill.heal) state.pet.hp = Math.min(stats.maxHp, state.pet.hp + skill.heal); if (skill.burn) battle.enemyBurn += skill.burn; if (skill.weaken) battle.enemyWeaken = Math.max(battle.enemyWeaken, skill.weaken);
-  battle.log = [`使用 ${skill.name}，造成 ${dealt} 点${skill.type}伤害。`, ...battle.log].slice(0, 6); const events: SPPetEvent[] = [event('SKILL_USED', { skill: skill.name, damage: dealt, type: skill.type, resource: battle.resource }, now)];
+  let playerMultiplier = 1, playerBlockAbsorbed = 0;
+  if ((skill.power ?? 0) > 0) { const shielded = battle.enemyBlock > 0; const targetElement = shielded ? battle.enemyBlockType : enemyAt(state, content).element ?? 'physical'; playerMultiplier = elementMultiplier(skill.type, targetElement, shielded); const raw = stats.attack * (skill.power ?? 0) * conditionFactor * (1 + (stats.damageBonus[skill.type] ?? 0) / 100) * playerMultiplier; dealt = finalDamage(raw, skill.type === 'physical' ? battle.enemyDefense : Math.floor(battle.enemyDefense / 2), battle.enemyResistances[skill.type]); const beforeBlock = battle.enemyBlock; const reduced = reduceByBlock(dealt, battle.enemyBlock); dealt = reduced[0]; battle.enemyBlock = reduced[1]; playerBlockAbsorbed = beforeBlock - battle.enemyBlock; if (!battle.enemyBlock) battle.enemyBlockType = null; battle.enemyHp = Math.max(0, battle.enemyHp - dealt); }
+  if (skill.block) { battle.playerBlock += skill.block; battle.playerBlockType = skill.type; } if (skill.heal) state.pet.hp = Math.min(stats.maxHp, state.pet.hp + skill.heal); if (skill.burn) battle.enemyBurn += skill.burn; if (skill.weaken) battle.enemyWeaken = Math.max(battle.enemyWeaken, skill.weaken);
+  battle.log = [`使用 ${skill.name}：${multiplierText(playerMultiplier)}，护盾吸收 ${playerBlockAbsorbed}，最终造成 ${dealt} 点 ${skill.type} 伤害。`, ...battle.log].slice(0, 6); const events: SPPetEvent[] = [event('SKILL_USED', { skill: skill.name, damage: dealt, type: skill.type, multiplier: playerMultiplier, blockAbsorbed: playerBlockAbsorbed, resource: battle.resource }, now)];
 
   if (battle.enemyHp > 0 && battle.enemyBurn > 0) { battle.enemyHp = Math.max(0, battle.enemyHp - battle.enemyBurn); battle.log.unshift(`灼烧造成 ${battle.enemyBurn} 点伤害。`); }
   const enemy = enemyAt(state, content);
   if (battle.enemyHp > 0) {
     const intent = enemy.intents[battle.intentIndex % enemy.intents.length];
-    if (intent.kind === 'guard') { battle.enemyBlock += intent.value; battle.log.unshift(`${enemy.name} 获得 ${intent.value} 护盾。`); events.push(event('ENEMY_ACTION', { enemy: enemy.name, action: 'guard', value: intent.value }, now)); }
+    if (intent.kind === 'guard') { const type = intent.type ?? enemy.element ?? 'physical'; battle.enemyBlock += intent.value; battle.enemyBlockType = type; battle.log.unshift(`${enemy.name} 获得 ${intent.value} 点 ${type} 护盾；同属性攻击先减伤 35%。`); events.push(event('ENEMY_ACTION', { enemy: enemy.name, action: 'guard', value: intent.value, type, sameTypeReduction: 35 }, now)); }
     else if (intent.kind === 'buff') { battle.enemyAttackBuff += intent.value; battle.log.unshift(`${enemy.name} 攻击提高 ${intent.value}。`); events.push(event('ENEMY_ACTION', { enemy: enemy.name, action: 'buff', value: intent.value }, now)); }
-    else { const type = intent.type ?? 'physical'; const weaken = 1 - battle.enemyWeaken / 100; let damage = finalDamage((intent.value + battle.enemyAttackBuff) * weaken, type === 'physical' ? stats.defense : Math.floor(stats.defense / 2), stats.resistances[type]); const reduced = reduceByBlock(damage, battle.playerBlock); damage = reduced[0]; battle.playerBlock = reduced[1]; state.pet.hp = Math.max(0, state.pet.hp - damage); battle.log.unshift(`${enemy.name} 造成 ${damage} 点${type}伤害。`); events.push(event('ENEMY_ACTION', { enemy: enemy.name, action: 'attack', damage, type }, now)); }
+    else { const type = intent.type ?? 'physical'; const weaken = 1 - battle.enemyWeaken / 100; const shielded = battle.playerBlock > 0; const multiplier = elementMultiplier(type, shielded ? battle.playerBlockType : null, shielded); let damage = finalDamage((intent.value + battle.enemyAttackBuff) * weaken * multiplier, type === 'physical' ? stats.defense : Math.floor(stats.defense / 2), stats.resistances[type]); const beforeBlock = battle.playerBlock; const reduced = reduceByBlock(damage, battle.playerBlock); damage = reduced[0]; battle.playerBlock = reduced[1]; const absorbed = beforeBlock - battle.playerBlock; if (!battle.playerBlock) battle.playerBlockType = null; state.pet.hp = Math.max(0, state.pet.hp - damage); battle.log.unshift(`${enemy.name}：${multiplierText(multiplier)}，护盾吸收 ${absorbed}，最终造成 ${damage} 点 ${type} 伤害。`); events.push(event('ENEMY_ACTION', { enemy: enemy.name, action: 'attack', damage, type, multiplier, blockAbsorbed: absorbed }, now)); }
     battle.enemyWeaken = 0; battle.intentIndex = (battle.intentIndex + 1) % enemy.intents.length; battle.turn += 1; battle.maxResource = Math.min(5, battle.maxResource + 1); battle.resource = battle.maxResource;
   }
 

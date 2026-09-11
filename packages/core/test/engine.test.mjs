@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_CONTENT, advanceBattleStory, checkIn, createInitialState, getComputedStats, onDayChecked, onFocusTimeAdded, onPetConnectionChecked, onTaskCompleted, purchaseItem, equipItem, seedFocusTime, startBattle, useSkill } from '../dist/index.js';
+import { DEFAULT_CONTENT, advanceBattleStory, checkIn, claimMapReward, createInitialState, getComputedStats, onDayChecked, onFocusTimeAdded, onPetConnectionChecked, onTaskCompleted, purchaseItem, equipItem, seedFocusTime, startBattle, startBattleAt, useSkill } from '../dist/index.js';
 
 test('任务不直接发金币经验，完成委托后发经验且任务不重复结算', () => {
   let state = createInitialState('2026-09-10T08:00:00+08:00');
@@ -30,6 +30,21 @@ test('战斗包含可跳过的战前战后剧情且奖励只结算一次', () =>
 
 test('每回合资源上限加一并回满，敌方行动意图生效', () => {
   let state = startBattle(createInitialState(), DEFAULT_CONTENT).state; state = advanceBattleStory(state, true, DEFAULT_CONTENT).state; const turn = useSkill(state, 'strike', DEFAULT_CONTENT); assert.equal(turn.state.adventure.activeBattle.turn, 2); assert.equal(turn.state.adventure.activeBattle.maxResource, 2); assert.equal(turn.state.adventure.activeBattle.resource, 2); assert.ok(turn.state.pet.hp < 100);
+});
+
+test('小地图补给只能领取一次且只能进入当前战斗节点', () => {
+  const state = createInitialState(); state.pet.hp = 50;
+  const reward = claimMapReward(state, 0); const duplicate = claimMapReward(reward.state, 0); const locked = claimMapReward(reward.state, 1);
+  assert.equal(reward.state.coins, 4); assert.equal(reward.state.pet.hp, 56); assert.equal(duplicate.events.length, 0); assert.equal(locked.events.length, 0);
+  assert.equal(startBattleAt(reward.state, 1).events.length, 0); assert.equal(startBattleAt(reward.state, 0).events[0].type, 'BATTLE_STARTED');
+});
+
+test('元素克制、同属性护盾减伤与物理独立规则使用明确倍率', () => {
+  const content = structuredClone(DEFAULT_CONTENT); content.skills.push({ id: 'test-fire', name: '测试火击', nameEn: 'Test Fire', description: '', cost: 1, type: 'fire', power: 1 }); content.chapters[0].enemies[0] = { ...content.chapters[0].enemies[0], element: 'ice', maxHp: 200, defense: 0, resistances: { physical: 0, fire: 0, water: 0, ice: 0, electric: 0 } };
+  let state = createInitialState(); state.pet.learnedSkills.push('test-fire'); state = advanceBattleStory(startBattle(state, content).state, true, content).state;
+  const strong = useSkill(state, 'test-fire', content); assert.equal(strong.events[0].payload.multiplier, 1.5); assert.equal(strong.events[0].payload.damage, 18);
+  state = structuredClone(state); state.adventure.activeBattle.enemyBlock = 100; state.adventure.activeBattle.enemyBlockType = 'fire'; const sameShield = useSkill(state, 'test-fire', content); assert.equal(sameShield.events[0].payload.multiplier, 0.65); assert.equal(sameShield.events[0].payload.blockAbsorbed, 8);
+  state = structuredClone(state); state.adventure.activeBattle.enemyBlock = 100; state.adventure.activeBattle.enemyBlockType = 'fire'; const physical = useSkill(state, 'strike', content); assert.equal(physical.events[0].payload.multiplier, 1); assert.equal(physical.events[0].payload.blockAbsorbed, 12);
 });
 
 test('装备属性与先遣套装效果会进入最终战斗属性', () => {

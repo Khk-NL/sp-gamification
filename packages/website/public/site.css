@@ -141,4 +141,60 @@ footer { display: flex; justify-content: space-between; gap: 20px; padding: 30px
   .auth-card { padding: 30px 28px; }
 }
 
+@font-face {
+  font-family: "Silkscreen";
+  src: url("./assets/silkscreen-bold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+body { font-family: "Segoe UI", "Microsoft YaHei", sans-serif; font-size: 16px; font-weight: 650; }
+.brand, .topbar nav a, .eyebrow, .hero-code, .panel header small, .rank b:first-child, .rank em, .rank small, .message, .auth-status, .auth-card .mode, .tabs button, pre, footer { font-family: "Silkscreen", Consolas, monospace; font-weight: 700; }
+.topbar { height: 88px; padding-inline: 5vw; }
+.mark { width: 50px; height: 50px; font-size: 24px; }
+.brand { gap: 15px; }
+.brand strong { font-size: 18px; font-weight: 900; }
+.brand small { font-size: 10px; }
+.topbar nav { gap: 30px; }
+.topbar nav a { padding: 34px 0; font-size: 13px; }
+main { min-height: calc(100vh - 88px); }
+.hero p:not(.eyebrow) { font-size: 18px; font-weight: 650; }
+.eyebrow { font-size: 13px; }
+.panel, .grid { width: min(1240px, calc(100% - 6vw)); }
+.panel { margin-top: 24px; margin-bottom: 24px; padding: 30px; box-shadow: 10px 10px 0 rgba(30, 92, 119, .11); }
+.panel header { padding-bottom: 18px; }
+.panel header small { font-size: 12px; }
+.panel h2 { font-size: 28px; font-weight: 900; }
+.grid { gap: 22px; }
+.rank { grid-template-columns: 80px 1fr 150px 220px; gap: 18px; padding: 22px 15px; }
+.rank b:first-child { font-size: 26px; }
+.rank strong { font-size: 20px; font-weight: 900; }
+.rank em { font-size: 16px; }
+.rank small { font-size: 12px; }
+button, .button { padding: 13px 18px; font-size: 13px; font-weight: 900; }
+input, select, textarea { padding: 14px; font-size: 14px; font-weight: 700; }
+.field { margin: 15px 0; }
+.field label, .field > span { margin-bottom: 8px; font-size: 13px; font-weight: 800; }
+.actions { gap: 11px; margin: 19px 0; }
+.message, .auth-status { font-size: 13px; line-height: 1.7; }
+.auth-status { padding: 14px 16px; }
+.editor-list { gap: 14px; }
+.editor-card { padding: 20px; }
+.editor-card h3 { font-size: 18px; font-weight: 900; }
+.editor-card .fields { gap: 13px; margin-top: 15px; }
+pre { font-size: 13px; line-height: 1.7; }
+.auth-layout { width: min(1080px, calc(100% - 6vw)); }
+.auth-card h2 { font-size: 32px; font-weight: 900; }
+.auth-card .mode { font-size: 12px; }
+
+@media (max-width: 760px) {
+  .topbar { height: auto; padding: 14px 16px; }
+  .topbar nav { gap: 12px; }
+  .topbar nav a { padding: 20px 0; font-size: 10px; }
+  .panel, .grid { width: calc(100% - 28px); }
+  .panel { padding: 21px; }
+  .rank { grid-template-columns: 48px 1fr 82px; gap: 9px; padding: 18px 10px; }
+}
+
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }

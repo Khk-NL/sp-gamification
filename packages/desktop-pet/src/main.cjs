@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, nativeImage, Tray, Menu, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, nativeImage, screen, Tray, Menu, dialog } = require('electron');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const http = require('node:http');
@@ -57,21 +57,22 @@ const startBridgeServer = () => { bridgeServer = http.createServer((request, res
 const createTrayIcon = () => { const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><path d="M4 5h24v20l-6 6H4z" fill="#142431"/><path d="M8 9h16v12H8z" fill="#f7fbfd"/><path d="M19 9h5v5z" fill="#77e4ff"/></svg>`; return nativeImage.createFromDataURL(`data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`); };
 const showWindow = () => { if (!windowRef) return; windowRef.show(); windowRef.focus(); publishSnapshot(); };
 const resizeForSettings = (open) => { if (!windowRef) return; const bounds = windowRef.getBounds(); const width = open ? 340 : 250, height = open ? 460 : 300; windowRef.setBounds({ x: bounds.x, y: bounds.y + bounds.height - height, width, height }, true); };
-const createWindow = () => { const prefs = readJson(PET_SETTINGS_FILE, { alwaysOnTop: true }); windowRef = new BrowserWindow({ width: 250, height: 300, transparent: true, frame: false, resizable: false, alwaysOnTop: prefs.alwaysOnTop !== false, skipTaskbar: true, show: false, hasShadow: false, webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false } }); windowRef.loadFile(path.join(__dirname, 'index.html')); windowRef.once('ready-to-show', showWindow); };
+const setWindowInteractive = (interactive) => { if (!windowRef || windowRef.isDestroyed()) return; if (interactive) windowRef.setIgnoreMouseEvents(false); else windowRef.setIgnoreMouseEvents(true, { forward: true }); };
+const createWindow = () => { const prefs = readJson(PET_SETTINGS_FILE, { alwaysOnTop: true }); windowRef = new BrowserWindow({ width: 250, height: 300, transparent: true, frame: false, resizable: false, alwaysOnTop: prefs.alwaysOnTop !== false, skipTaskbar: true, show: false, hasShadow: false, webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false } }); windowRef.loadFile(path.join(__dirname, 'index.html')); windowRef.once('ready-to-show', () => { showWindow(); setWindowInteractive(false); }); windowRef.on('blur', () => { dragSession = null; }); };
 const createTray = () => { tray = new Tray(createTrayIcon()); tray.setToolTip('SPPet'); tray.setContextMenu(Menu.buildFromTemplate([{ label: '显示 SPPet', click: showWindow }, { label: '桌宠设置', click: () => { showWindow(); resizeForSettings(true); windowRef?.webContents.send('open-pet-settings'); } }, { type: 'separator' }, { label: '退出', click: () => app.quit() }])); tray.on('double-click', showWindow); };
 
 if (!app.requestSingleInstanceLock()) app.quit(); else { app.on('second-instance', showWindow); app.whenReady().then(() => { fs.mkdirSync(DATA_DIRECTORY, { recursive: true }); migrateLegacyData(); createWindow(); createTray(); startBridgeServer(); watcher = fs.watch(DATA_DIRECTORY, (_event, filename) => { if (['state.json','events.json','pet-settings.json','pet-profile.json'].includes(String(filename))) scheduleRead(); }); }); }
 ipcMain.on('pet-hide', () => windowRef?.hide()); ipcMain.on('pet-close', () => app.quit()); ipcMain.on('pet-settings-open', (_event, open) => resizeForSettings(Boolean(open)));
-const validDragPoint = (point) => Number.isFinite(point?.screenX) && Number.isFinite(point?.screenY);
 const fromPetWindow = (event) => windowRef && !windowRef.isDestroyed() && event.sender === windowRef.webContents;
-ipcMain.on('pet-drag-start', (event, point) => {
-  if (!fromPetWindow(event) || !validDragPoint(point)) return;
-  const [windowX, windowY] = windowRef.getPosition();
-  dragSession = { pointerX: point.screenX, pointerY: point.screenY, windowX, windowY };
+ipcMain.on('pet-set-interactive', (event, interactive) => { if (fromPetWindow(event)) setWindowInteractive(Boolean(interactive)); });
+ipcMain.on('pet-drag-start', (event) => {
+  if (!fromPetWindow(event)) return;
+  const [windowX, windowY] = windowRef.getPosition(); const pointer = screen.getCursorScreenPoint();
+  dragSession = { offsetX: pointer.x - windowX, offsetY: pointer.y - windowY };
 });
-ipcMain.on('pet-drag-move', (event, point) => {
-  if (!fromPetWindow(event) || !dragSession || !validDragPoint(point)) return;
-  windowRef.setPosition(Math.round(dragSession.windowX + point.screenX - dragSession.pointerX), Math.round(dragSession.windowY + point.screenY - dragSession.pointerY), false);
+ipcMain.on('pet-drag-move', (event) => {
+  if (!fromPetWindow(event) || !dragSession) return;
+  const pointer = screen.getCursorScreenPoint(); windowRef.setPosition(pointer.x - dragSession.offsetX, pointer.y - dragSession.offsetY, false);
 });
 ipcMain.on('pet-drag-end', (event) => { if (fromPetWindow(event)) dragSession = null; });
 ipcMain.handle('pet-select-skin', async () => { const result = await dialog.showOpenDialog(windowRef, { title: '选择桌宠 pet.json', properties: ['openFile'], filters: [{ name: 'Pet skin', extensions: ['json'] }] }); if (result.canceled || !result.filePaths[0]) return null; const skin = loadSkin(result.filePaths[0]); updatePetSettings({ skinJsonPath: result.filePaths[0] }); publishSnapshot(); return skin; });

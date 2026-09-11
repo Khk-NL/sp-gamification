@@ -11,15 +11,15 @@ export interface ItemDefinition {
   effects?: { maxHp?: number; attack?: number; defense?: number; resistance?: Partial<Resistances>; damageBonus?: Partial<Record<DamageType, number>>; heal?: number; condition?: number; xpBonus?: number; coinBonus?: number; };
 }
 export interface EnemyIntent { kind: 'attack' | 'guard' | 'buff'; value: number; type?: DamageType; label: string; labelEn: string; }
-export interface EnemyDefinition { id: string; name: string; nameEn: string; maxHp: number; attack: number; defense: number; resistances: Resistances; intents: EnemyIntent[]; xp: number; coins: number; isBoss?: boolean; storyBefore?: string[]; storyAfter?: string[]; }
+export interface EnemyDefinition { id: string; name: string; nameEn: string; element?: DamageType; maxHp: number; attack: number; defense: number; resistances: Resistances; intents: EnemyIntent[]; xp: number; coins: number; isBoss?: boolean; storyBefore?: string[]; storyAfter?: string[]; }
 export interface ChapterDefinition { id: string; name: string; nameEn: string; summary: string; enemies: EnemyDefinition[]; }
 export interface GameContent { version: number; skills: SkillDefinition[]; items: ItemDefinition[]; chapters: ChapterDefinition[]; }
 
-export type SPPetEventType = 'TASK_COMPLETED' | 'COMMISSION_COMPLETED' | 'LEVEL_UP' | 'STREAK_UPDATED' | 'CHECK_IN' | 'BATTLE_STARTED' | 'SKILL_USED' | 'ENEMY_ACTION' | 'BATTLE_WON' | 'BATTLE_LOST' | 'CHAPTER_COMPLETED' | 'ITEM_PURCHASED' | 'ITEM_EQUIPPED' | 'ITEM_USED' | 'PET_CONDITION_CHANGED' | 'DEBUG_XP' | 'DEBUG_COINS' | 'STATE_RESET';
+export type SPPetEventType = 'TASK_COMPLETED' | 'COMMISSION_COMPLETED' | 'LEVEL_UP' | 'STREAK_UPDATED' | 'CHECK_IN' | 'MAP_REWARD_CLAIMED' | 'BATTLE_STARTED' | 'SKILL_USED' | 'ENEMY_ACTION' | 'BATTLE_WON' | 'BATTLE_LOST' | 'CHAPTER_COMPLETED' | 'ITEM_PURCHASED' | 'ITEM_EQUIPPED' | 'ITEM_USED' | 'PET_CONDITION_CHANGED' | 'DEBUG_XP' | 'DEBUG_COINS' | 'STATE_RESET';
 export interface SPPetEvent { id: string; type: SPPetEventType; timestamp: string; payload: Record<string, string | number | boolean | null>; }
 export interface BattleState {
   enemyId: string; enemyName: string; enemyHp: number; enemyMaxHp: number; enemyDefense: number; enemyResistances: Resistances;
-  enemyAttack: number; enemyBlock: number; enemyAttackBuff: number; playerBlock: number; enemyBurn: number; enemyWeaken: number;
+  enemyAttack: number; enemyBlock: number; enemyBlockType: DamageType | null; enemyAttackBuff: number; playerBlock: number; playerBlockType: DamageType | null; enemyBurn: number; enemyWeaken: number;
   turn: number; resource: number; maxResource: number; intentIndex: number; log: string[];
   phase: 'story_before' | 'combat' | 'story_after'; storyIndex: number; rewardsClaimed: boolean;
 }
@@ -35,7 +35,7 @@ export interface SPPetState {
     buff: { xpBonus: number; coinBonus: number; attackBonus: number; battlesRemaining: number };
     lastConnectedAt: string; lastConditionDecayAt: string;
   };
-  adventure: { chapterIndex: number; encounterIndex: number; activeBattle: BattleState | null };
+  adventure: { chapterIndex: number; encounterIndex: number; claimedMapRewards: string[]; activeBattle: BattleState | null };
   updatedAt: string;
 }
 export interface EngineResult { state: SPPetState; events: SPPetEvent[]; }

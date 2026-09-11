@@ -28,3 +28,30 @@
 @keyframes drag-lift {
   to { transform: translateX(-50%) translateY(-8px); }
 }
+
+.desktop::before,
+.desktop::after {
+  content: "";
+  position: absolute;
+  z-index: 8;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.desktop::before { inset: 70px 12px 8px; border: 4px solid transparent; }
+.desktop::after { left: 50%; bottom: 38px; width: 190px; height: 190px; transform: translateX(-50%); border-radius: 50%; }
+.desktop.event-start::before { opacity: 1; border-color: #77e4ff; box-shadow: inset 0 0 26px #77e4ff, 0 0 20px rgba(119, 228, 255, .75); animation: battle-alert .3s steps(2) 5; }
+.desktop.event-start::after { opacity: .85; background: repeating-conic-gradient(from 0deg, rgba(119, 228, 255, .48) 0 8deg, transparent 8deg 22deg); animation: battle-spin 1.4s linear; }
+.desktop.event-win::before { opacity: 1; border-color: #ffe06e; box-shadow: inset 0 0 30px #ffe06e, 0 0 24px rgba(255, 224, 110, .8); animation: victory-flash .45s steps(2) 4; }
+.desktop.event-win::after,
+.desktop.event-reward::after { opacity: .9; background: radial-gradient(circle, #fff6a6 0 4%, transparent 5%), conic-gradient(from 15deg, transparent 0 8%, #ffe06e 9% 12%, transparent 13% 25%, #8df7b5 26% 29%, transparent 30% 47%, #77e4ff 48% 51%, transparent 52%); animation: victory-burst 1.6s ease-out forwards; }
+.desktop.event-lose::before { opacity: 1; border-color: #ff536d; box-shadow: inset 0 0 34px rgba(255, 50, 78, .82); animation: defeat-shake .18s steps(2) 8; }
+.desktop.event-lose .pet,
+.desktop.event-lose .custom-sprite { filter: grayscale(.85) drop-shadow(7px 9px rgba(86, 0, 18, .55)); animation: defeat-drop 1.5s ease-out both; }
+
+@keyframes battle-alert { 50% { opacity: .25; } }
+@keyframes battle-spin { to { transform: translateX(-50%) rotate(180deg); opacity: 0; } }
+@keyframes victory-flash { 50% { opacity: .25; } }
+@keyframes victory-burst { to { transform: translateX(-50%) scale(1.6) rotate(35deg); opacity: 0; } }
+@keyframes defeat-shake { 50% { transform: translateX(5px); } }
+@keyframes defeat-drop { 55% { transform: translateX(-50%) translateY(-18px) rotate(-6deg); } 100% { transform: translateX(-50%) translateY(18px) rotate(8deg); } }

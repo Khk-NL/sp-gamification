@@ -8,8 +8,9 @@ contextBridge.exposeInMainWorld('petApi', {
   setAlwaysOnTop: (enabled) => ipcRenderer.invoke('pet-set-top', enabled),
   setSize: (size) => ipcRenderer.invoke('pet-set-size', size),
   setSettingsOpen: (open) => ipcRenderer.send('pet-settings-open', open),
-  dragStart: (point) => ipcRenderer.send('pet-drag-start', point),
-  dragMove: (point) => ipcRenderer.send('pet-drag-move', point),
+  setInteractive: (interactive) => ipcRenderer.send('pet-set-interactive', interactive),
+  dragStart: () => ipcRenderer.send('pet-drag-start'),
+  dragMove: () => ipcRenderer.send('pet-drag-move'),
   dragEnd: () => ipcRenderer.send('pet-drag-end'),
   onSnapshot: (handler) => {
     const listener = (_event, snapshot) => handler(snapshot);
