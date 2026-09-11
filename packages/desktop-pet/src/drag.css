@@ -22,10 +22,11 @@
 }
 
 .drag-grip { -webkit-app-region: no-drag; pointer-events: none; }
-.bubble { font-family: "Arial Black", "Segoe UI", "Microsoft YaHei", sans-serif; font-size: 12px; font-weight: 900; }
+.bubble { font-family: "Arial Black", "Segoe UI", "Microsoft YaHei", sans-serif; font-size: 14px; font-weight: 900; }
 .settings-panel, .context-menu { font-family: "Arial Black", "Segoe UI", "Microsoft YaHei", sans-serif; font-weight: 900; }
-.settings-panel header small, .connection { font-family: "Arial Black", "Segoe UI", "Microsoft YaHei", sans-serif; font-size: 10px; font-weight: 900; }
-.path { font-family: "Segoe UI", "Microsoft YaHei", sans-serif; font-size: 9px; font-weight: 700; }
+.settings-panel header small, .connection { font-family: "Arial Black", "Segoe UI", "Microsoft YaHei", sans-serif; font-size: 12px; font-weight: 900; }
+.settings-panel label, .settings-panel button, .context-menu button { font-size: 12px; font-weight: 800; }
+.path { font-family: "Segoe UI", "Microsoft YaHei", sans-serif; font-size: 11px; font-weight: 700; }
 
 .desktop::before,
 .desktop::after {

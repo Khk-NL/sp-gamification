@@ -191,6 +191,16 @@ pre { font-size: 14px; line-height: 1.7; }
 
 body,
 body * { font-family: "Arial Black", "Segoe UI", "Microsoft YaHei", sans-serif !important; font-weight: 900; }
-small, .brand small, .panel header small, .rank small, .auth-card .mode, footer { font-size: 13px; line-height: 1.5; }
+small, .brand small, .panel header small, .rank small, .auth-card .mode, footer { font-size: 14px; line-height: 1.6; }
+body { font-size: 18px; font-weight: 700; }
+.brand strong { font-size: 21px; }
+.brand small { font-size: 14px; }
+.topbar nav a { font-size: 17px; font-weight: 900; }
+.panel h2 { font-size: 31px; }
+.panel header small, .eyebrow { font-size: 16px; font-weight: 900; }
+.rank strong { font-size: 22px; }
+.rank em, button, .button, input, select, textarea { font-size: 17px; }
+.field label, .field > span, .message, .auth-status, pre { font-size: 15px; }
+.editor-card h3 { font-size: 21px; }
 
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }

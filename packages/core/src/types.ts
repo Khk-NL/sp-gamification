@@ -25,7 +25,7 @@ export interface BattleState {
   phase: 'story_before' | 'combat' | 'story_after'; storyIndex: number; rewardsClaimed: boolean;
 }
 export interface SPPetState {
-  version: 3; level: number; xp: number; coins: number; streak: number; lastActiveDate: string | null;
+  version: 3; level: number; xp: number; coins: number; streak: number; lastActiveDate: string | null; lastLoginDate: string | null;
   totalTasksCompleted: number; totalFocusMinutes: number; totalBattlesWon: number; today: { date: string; tasksCompleted: number };
   processedTaskIds: string[]; observedFocusMinutesByTask: Record<string, number>;
   commissions: { date: string; tasks: { progress: number; target: number; claimed: boolean }; focus: { progress: number; target: number; claimed: boolean } };

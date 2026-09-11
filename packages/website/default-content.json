@@ -1,12 +1,12 @@
 {
   "version": 1,
   "skills": [
-    {"id":"strike","name":"战术打击","nameEn":"Tactical Strike","description":"可靠的物理攻击。","cost":1,"type":"physical","power":1},
-    {"id":"brace","name":"防御姿态","nameEn":"Brace","description":"攻击 ×0.35，获得 10 点物理护盾。","cost":1,"type":"physical","power":0.35,"block":10},
-    {"id":"ember-shot","name":"灼流弹","nameEn":"Ember Shot","description":"攻击 ×0.9，每次结束回合造成 4 点灼烧。","cost":2,"type":"fire","power":0.9,"burn":4},
-    {"id":"tide-cut","name":"潮切","nameEn":"Tide Cut","description":"攻击 ×1.25 的水属性伤害。","cost":2,"type":"water","power":1.25},
-    {"id":"frost-ward","name":"霜盾","nameEn":"Frost Ward","description":"攻击 ×0.65，获得 8 点冰盾，敌方本回合攻击 -20%。","cost":2,"type":"ice","power":0.65,"block":8,"weaken":20},
-    {"id":"arc-burst","name":"弧光过载","nameEn":"Arc Burst","description":"攻击 ×1.65 的电属性伤害。","cost":3,"type":"electric","power":1.65}
+    {"id":"strike","name":"战术打击","nameEn":"Tactical Strike","description":"造成攻击 ×1 的物理伤害。","cost":1,"type":"physical","power":1},
+    {"id":"brace","name":"防御姿态","nameEn":"Brace","description":"攻击 ×0.5，获得 10 点物理护盾。","cost":1,"type":"physical","power":0.5,"block":10},
+    {"id":"ember-shot","name":"灼流弹","nameEn":"Ember Shot","description":"攻击 ×1，每次结束回合造成 4 点灼烧。","cost":2,"type":"fire","power":1,"burn":4},
+    {"id":"tide-cut","name":"潮切","nameEn":"Tide Cut","description":"攻击 ×1.5 的水属性伤害。","cost":2,"type":"water","power":1.5},
+    {"id":"frost-ward","name":"霜盾","nameEn":"Frost Ward","description":"攻击 ×0.5，获得 8 点冰盾，敌方本回合攻击 -20%。","cost":2,"type":"ice","power":0.5,"block":8,"weaken":20},
+    {"id":"arc-burst","name":"弧光过载","nameEn":"Arc Burst","description":"攻击 ×1.5 的电属性伤害。","cost":3,"type":"electric","power":1.5}
   ],
   "items": [
     {"id":"signal-visor","kind":"skin","name":"信号目镜","nameEn":"Signal Visor","description":"面部皮肤部件。","price":24,"icon":"VIS"},

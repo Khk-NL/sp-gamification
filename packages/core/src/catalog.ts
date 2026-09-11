@@ -6,12 +6,12 @@ const resist = (changes: Partial<Resistances> = {}): Resistances => ({ ...ZERO_R
 export const DEFAULT_CONTENT: GameContent = {
   version: 1,
   skills: [
-    { id: 'strike', name: '战术打击', nameEn: 'Tactical Strike', description: '可靠的物理攻击。', cost: 1, type: 'physical', power: 1 },
-    { id: 'brace', name: '防御姿态', nameEn: 'Brace', description: '造成攻击 ×0.35 的物理伤害，获得 10 点物理护盾。', cost: 1, type: 'physical', power: 0.35, block: 10 },
-    { id: 'ember-shot', name: '灼流弹', nameEn: 'Ember Shot', description: '造成攻击 ×0.9 的火伤，每回合追加 4 点灼烧。', cost: 2, type: 'fire', power: 0.9, burn: 4 },
-    { id: 'tide-cut', name: '潮切', nameEn: 'Tide Cut', description: '造成攻击 ×1.25 的水属性伤害。', cost: 2, type: 'water', power: 1.25 },
-    { id: 'frost-ward', name: '霜盾', nameEn: 'Frost Ward', description: '造成攻击 ×0.65 的冰伤，获得 8 点冰盾并降低敌方下次伤害 20%。', cost: 2, type: 'ice', power: 0.65, block: 8, weaken: 20 },
-    { id: 'arc-burst', name: '弧光过载', nameEn: 'Arc Burst', description: '造成攻击 ×1.65 的电属性伤害。', cost: 3, type: 'electric', power: 1.65 },
+    { id: 'strike', name: '战术打击', nameEn: 'Tactical Strike', description: '造成攻击 ×1 的物理伤害。', cost: 1, type: 'physical', power: 1 },
+    { id: 'brace', name: '防御姿态', nameEn: 'Brace', description: '造成攻击 ×0.5 的物理伤害，获得 10 点物理护盾。', cost: 1, type: 'physical', power: 0.5, block: 10 },
+    { id: 'ember-shot', name: '灼流弹', nameEn: 'Ember Shot', description: '造成攻击 ×1 的火伤，每回合追加 4 点灼烧。', cost: 2, type: 'fire', power: 1, burn: 4 },
+    { id: 'tide-cut', name: '潮切', nameEn: 'Tide Cut', description: '造成攻击 ×1.5 的水属性伤害。', cost: 2, type: 'water', power: 1.5 },
+    { id: 'frost-ward', name: '霜盾', nameEn: 'Frost Ward', description: '造成攻击 ×0.5 的冰伤，获得 8 点冰盾并降低敌方下次伤害 20%。', cost: 2, type: 'ice', power: 0.5, block: 8, weaken: 20 },
+    { id: 'arc-burst', name: '弧光过载', nameEn: 'Arc Burst', description: '造成攻击 ×1.5 的电属性伤害。', cost: 3, type: 'electric', power: 1.5 },
   ],
   items: [
     { id: 'signal-visor', kind: 'skin', name: '信号目镜', nameEn: 'Signal Visor', description: '可替换的面部皮肤部件。', price: 24, icon: 'VIS' },
@@ -21,7 +21,7 @@ export const DEFAULT_CONTENT: GameContent = {
     { id: 'frost-chip', kind: 'skill', name: '霜盾芯片', nameEn: 'Frost Chip', description: '解锁技能“霜盾”。', price: 58, icon: 'SK', grantsSkill: 'frost-ward' },
     { id: 'arc-chip', kind: 'skill', name: '弧光芯片', nameEn: 'Arc Chip', description: '解锁技能“弧光过载”。', price: 72, icon: 'SK', grantsSkill: 'arc-burst' },
     { id: 'pioneer-blade', kind: 'weapon', name: '先遣短刃', nameEn: 'Pioneer Blade', description: '攻击 +4；先遣套装部件。', price: 65, icon: 'WPN', slot: 'weapon', setId: 'pioneer', effects: { attack: 4, damageBonus: { physical: 10 } } },
-    { id: 'ember-lance', kind: 'weapon', name: '熔核长枪', nameEn: 'Ember Lance', description: '攻击 +6，火伤 +15%。', price: 105, icon: 'WPN', slot: 'weapon', effects: { attack: 6, damageBonus: { fire: 15 } } },
+    { id: 'ember-lance', kind: 'weapon', name: '熔核长枪', nameEn: 'Ember Lance', description: '攻击 +6，火伤 +20%。', price: 105, icon: 'WPN', slot: 'weapon', effects: { attack: 6, damageBonus: { fire: 20 } } },
     { id: 'frost-cutter', kind: 'weapon', name: '霜线切割器', nameEn: 'Frostline Cutter', description: '攻击 +5，冰伤 +10%；霜线套装部件。', price: 98, icon: 'WPN', slot: 'weapon', setId: 'frostline', effects: { attack: 5, damageBonus: { ice: 10 } } },
     { id: 'pioneer-coat', kind: 'armor', name: '先遣外套', nameEn: 'Pioneer Coat', description: '防御 +3，生命 +15；先遣套装部件。', price: 75, icon: 'ARM', slot: 'armor', setId: 'pioneer', effects: { defense: 3, maxHp: 15 } },
     { id: 'frost-plate', kind: 'armor', name: '霜线护甲', nameEn: 'Frostline Plate', description: '防御 +5，生命 +20。', price: 112, icon: 'ARM', slot: 'armor', setId: 'frostline', effects: { defense: 5, maxHp: 20 } },
@@ -45,10 +45,14 @@ export const DEFAULT_CONTENT: GameContent = {
 };
 
 const damageTypes: DamageType[] = ['physical', 'fire', 'water', 'ice', 'electric'];
+const percentTier = (value: unknown): number => { const number = Number(value) || 0; if (number <= 0) return 0; if (number <= 15) return 10; if (number <= 35) return 20; return 50; };
+const multiplierTier = (value: unknown): number => { const number = Number(value) || 0; if (number <= 0) return 0; if (number < 1) return .5; if (number < 1.5) return 1; return 1.5; };
 export const normalizeContent = (input: unknown): GameContent => {
   if (!input || typeof input !== 'object') return DEFAULT_CONTENT;
   const value = input as Partial<GameContent>;
   if (!Array.isArray(value.skills) || !Array.isArray(value.items) || !Array.isArray(value.chapters) || !value.chapters.length) return DEFAULT_CONTENT;
+  const skills = value.skills.map((skill) => ({ ...skill, power: multiplierTier(skill.power), weaken: percentTier(skill.weaken) || undefined }));
+  const items = value.items.map((item) => { const effects = item.effects ? { ...item.effects } : undefined; if (effects) { effects.xpBonus = percentTier(effects.xpBonus) || undefined; effects.coinBonus = percentTier(effects.coinBonus) || undefined; if (effects.damageBonus) effects.damageBonus = Object.fromEntries(Object.entries(effects.damageBonus).map(([type, amount]) => [type, percentTier(amount)])); } return { ...item, effects }; });
   const chapters = value.chapters.filter((chapter) => chapter && Array.isArray(chapter.enemies) && chapter.enemies.length).map((chapter) => ({ ...chapter, enemies: chapter.enemies.map((enemy) => ({ ...enemy, element: enemy.element && damageTypes.includes(enemy.element) ? enemy.element : 'physical', resistances: { ...ZERO_RESISTANCE, ...(enemy.resistances ?? {}) }, intents: Array.isArray(enemy.intents) && enemy.intents.length ? enemy.intents.filter((intent) => intent && ['attack', 'guard', 'buff'].includes(intent.kind) && (!intent.type || damageTypes.includes(intent.type))) : [{ kind: 'attack' as const, value: 5, type: 'physical' as const, label: '攻击 5', labelEn: 'Attack 5' }] })) }));
-  return chapters.length ? { version: Number(value.version) || 1, skills: value.skills, items: value.items, chapters } : DEFAULT_CONTENT;
+  return chapters.length ? { version: Number(value.version) || 1, skills, items, chapters } : DEFAULT_CONTENT;
 };

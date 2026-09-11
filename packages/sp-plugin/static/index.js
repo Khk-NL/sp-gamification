@@ -45,11 +45,12 @@ function renderGrowth() {
 }
 
 function renderLoadout() {
-  const equipped = model.state.pet.equippedSkills || []; $('loadout-count').textContent = `SKILL LOADOUT · ${equipped.length}/4`; const root = $('skill-loadout'); root.replaceChildren(...model.content.skills.filter((skill) => model.state.pet.learnedSkills.includes(skill.id)).map((skill) => { const selected = equipped.includes(skill.id); const button = document.createElement('button'); button.className = `loadout-skill skill-${skill.type} ${selected ? 'selected' : ''}`; button.dataset.skillId = skill.id; button.disabled = !selected && equipped.length >= 4; const name = document.createElement('b'); name.textContent = `${selected ? '✓ ' : ''}${itemName(skill)} · ${skill.cost} RP`; const description = document.createElement('small'); description.textContent = skill.description; button.append(name, description); return button; }));
+  const equipped = model.state.pet.equippedSkills || []; $('loadout-count').textContent = `SKILL LOADOUT · ${equipped.length}/4`; const root = $('skill-loadout'); root.replaceChildren(...model.content.skills.filter((skill) => model.state.pet.learnedSkills.includes(skill.id)).map((skill) => { const selected = equipped.includes(skill.id); const button = document.createElement('button'); button.className = `loadout-skill skill-${skill.type} ${selected ? 'selected' : ''}`; button.dataset.skillId = skill.id; button.disabled = !selected && equipped.length >= 4; const name = document.createElement('b'); name.textContent = `${selected ? '✓ ' : ''}${itemName(skill)} · ${skill.cost} RP`; const description = document.createElement('small'); const damage = displayedDamage(skill); description.textContent = `${skill.description}${damage ? ` 当前 ${damage} 伤害` : ''}`; button.append(name, description); return button; }));
 }
 
 function itemAction(item) {
   const state = model.state, count = state.pet.inventory[item.id] || 0;
+  if (item.kind === 'skill' && item.grantsSkill && state.pet.learnedSkills.includes(item.grantsSkill)) return { label: language() === 'en' ? 'LEARNED' : '已学习', disabled: true };
   if (!count) return { label: language() === 'en' ? 'BUY' : '购买', action: 'purchaseItem' };
   if (item.kind === 'food') return { label: language() === 'en' ? `USE ×${count}` : `使用 ×${count}`, action: 'useItem' };
   if (item.kind === 'skill') return { label: language() === 'en' ? 'LEARNED' : '已学习', disabled: true };
@@ -65,6 +66,20 @@ function renderShop() {
 }
 
 function currentEnemyDefinition() { const battle = model.state.adventure.activeBattle; if (!battle) return null; for (const chapter of model.content.chapters) { const found = chapter.enemies.find((enemy) => enemy.id === battle.enemyId); if (found) return found; } return null; }
+
+function displayedDamage(skill, battle = null) {
+  if (!(skill.power > 0)) return 0;
+  let multiplier = 1;
+  if (battle && skill.type !== 'physical') {
+    const enemy = currentEnemyDefinition(), target = battle.enemyBlock > 0 ? battle.enemyBlockType : enemy?.element;
+    const strongAgainst = { fire: 'ice', ice: 'electric', electric: 'water', water: 'fire' };
+    if (target === skill.type && battle.enemyBlock > 0) multiplier = .5;
+    else if (strongAgainst[skill.type] === target) multiplier = 1.5;
+  }
+  const bonus = model.computedStats.damageBonus?.[skill.type] || 0;
+  const defense = battle ? battle.enemyDefense : 0;
+  return Math.max(1, Math.round(model.computedStats.attack * skill.power * (1 + bonus / 100) * multiplier) - defense);
+}
 
 const elementClasses = ['physical', 'fire', 'water', 'ice', 'electric'];
 function setElementClass(element, prefix, type) { element.classList.remove(...elementClasses.map((entry) => `${prefix}-${entry}`)); if (type) element.classList.add(`${prefix}-${type}`); }
@@ -93,7 +108,7 @@ function renderBattle() {
   if (!battle) { $('skills').replaceChildren(); $('battle-effects').textContent = ''; $('battle-log').textContent = language() === 'en' ? 'Select a battle node on the map.' : '点击小地图上的战斗节点开始行动。'; $('turn').textContent = '--'; $('resource').textContent = '--'; $('end-turn').disabled = true; $('story').classList.remove('open'); return; }
   const enemy = currentEnemyDefinition(); setElementClass($('enemy'), 'element', enemy?.element || 'physical'); setElementClass($('enemy'), 'shield', battle.enemyBlock > 0 ? battle.enemyBlockType : null); setElementClass(document.querySelector('.pet-fighter'), 'shield', battle.playerBlock > 0 ? battle.playerBlockType : null); $('enemy-name').textContent = enemy ? enemyName(enemy) : battle.enemyName; $('boss-tag').textContent = enemy?.isBoss ? 'BOSS' : 'TARGET'; $('enemy-hp').textContent = `${battle.enemyHp} / ${battle.enemyMaxHp} HP · SHIELD ${battle.enemyBlock} ${String(battle.enemyBlockType || '').toUpperCase()}`; $('enemy-hp-bar').style.width = percent(battle.enemyHp, battle.enemyMaxHp); $('player-hp').textContent = `${state.pet.hp} / ${model.computedStats.maxHp} HP · SHIELD ${battle.playerBlock}`; $('player-hp-bar').style.width = percent(state.pet.hp, model.computedStats.maxHp); $('turn').textContent = battle.turn; $('resource').textContent = `${battle.resource} / 5`; $('end-turn').disabled = battle.phase !== 'combat'; renderBattleEffects(battle);
   const intent = enemy?.intents[battle.intentIndex % enemy.intents.length]; $('intent').textContent = intent ? `INTENT // ${language() === 'en' ? intent.labelEn : intent.label}` : 'INTENT // --';
-  const skills = model.content.skills.filter((skill) => state.pet.equippedSkills.includes(skill.id)); $('skills').replaceChildren(...skills.map((skill) => { const button = document.createElement('button'); button.className = `skill skill-${skill.type}`; const title = document.createElement('b'); title.textContent = `${itemName(skill)} [${skill.cost}]`; const description = document.createElement('small'); description.textContent = skill.description; button.append(title, description); button.disabled = battle.phase !== 'combat' || skill.cost > battle.resource; button.addEventListener('click', async () => { const beforeBattle = model.state.adventure.activeBattle; playCombatEffect($('enemy'), skill.type); if (skill.block) setElementClass(document.querySelector('.pet-fighter'), 'shield', skill.type); await act('useSkill', { skillId: skill.id }); const afterBattle = model.state.adventure.activeBattle; if (beforeBattle && afterBattle?.phase === 'story_after' && beforeBattle.phase !== 'story_after') playBattleCue('win', language() === 'en' ? 'VICTORY // Rewards secured' : '战斗胜利 // 奖励已结算'); }); return button; }));
+  const skills = model.content.skills.filter((skill) => state.pet.equippedSkills.includes(skill.id)); $('skills').replaceChildren(...skills.map((skill) => { const button = document.createElement('button'); button.className = `skill skill-${skill.type}`; const title = document.createElement('b'); title.textContent = `${itemName(skill)} [${skill.cost}]`; const description = document.createElement('small'); const damage = displayedDamage(skill, battle); description.textContent = `${skill.description}${damage ? ` 本次 ${damage} 伤害（护盾前）` : ''}`; button.append(title, description); button.disabled = battle.phase !== 'combat' || skill.cost > battle.resource; button.addEventListener('click', async () => { const beforeBattle = model.state.adventure.activeBattle; playCombatEffect($('enemy'), skill.type); if (skill.block) setElementClass(document.querySelector('.pet-fighter'), 'shield', skill.type); await act('useSkill', { skillId: skill.id }); const afterBattle = model.state.adventure.activeBattle; if (beforeBattle && afterBattle?.phase === 'story_after' && beforeBattle.phase !== 'story_after') playBattleCue('win', language() === 'en' ? 'VICTORY // Rewards secured' : '战斗胜利 // 奖励已结算'); }); return button; }));
   $('battle-log').replaceChildren(...battle.log.map((entry) => { const p = document.createElement('p'); p.textContent = entry; return p; })); renderStory(battle);
 }
 

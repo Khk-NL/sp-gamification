@@ -494,3 +494,23 @@ body * { font-family: "Arial Black", "Segoe UI", "Microsoft YaHei", sans-serif !
 .headline p, .level-block span, .metric-grid span, .commission, label, .message, .filters button, .item footer, .pet-fighter b { font-size: 11px; }
 .xp-panel span, .commission > div:first-child, .item b, .panel > header b, .skill b { font-size: 13px; }
 .item small, .skill small, small { font-size: 11px; line-height: 1.5; }
+
+/* Readability pass: the sidebar is a game screen, so labels must remain legible at a glance. */
+body { font-size: 16px; font-weight: 800; }
+.brand strong { font-size: 17px; }
+.brand small, .network, .section-id, .headline p, .level-block span,
+.panel > header span, .commission span, .operator-card > b, .stats-panel dt,
+.filters button, .item-icon, .item footer, .connection, .links a,
+.chapter-label small, .chapter-label span, .enemy-data span, .enemy-data small,
+.enemy-data strong, .battle-log, .story small, .bottom-nav b, .floor-label,
+.map-node small { font-size: 13px; line-height: 1.55; }
+.headline h1 { font-size: 42px; }
+.headline p, .level-block span, .metric-grid span, .commission, label, .message,
+.filters button, .item footer, .pet-fighter b { font-size: 14px; }
+.xp-panel span, .commission > div:first-child, .item b, .panel > header b,
+.skill b, .loadout-skill b, .effect-module > b, .damage-formula > b { font-size: 16px; }
+.item small, .skill small, .loadout-skill small, small, .battle-effects span,
+.damage-formula span { font-size: 14px; line-height: 1.6; }
+.damage-formula code { font-size: 15px; line-height: 1.65; }
+button, input, select, textarea { font-size: 15px; }
+.bottom-nav span { font-size: 16px; font-weight: 900; }
