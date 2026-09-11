@@ -5,13 +5,18 @@ const customSprite = document.getElementById('custom-sprite');
 const characterElement = document.getElementById('character');
 const contextMenu = document.getElementById('context-menu');
 const settingsPanel = document.getElementById('settings-panel');
+const chatPanel = document.getElementById('chat-panel');
+const historyPanel = document.getElementById('history-panel');
+const overlayPanels = [settingsPanel, chatPanel, historyPanel];
 const messageQueue = [];
 let snapshot = null, showingMessage = false, messageTimer = null, activeSkinId = null, frame = 0, spriteState = 'idle', lastInteraction = Date.now();
 let dragGesture = null, mouseInteractive = null, activeEventEffect = null, eventEffectTimer = null;
 let idleLines = ['休息一下也没关系。'], clickLines = ['收到！'];
 let activeCharacter = null, characterState = 'idle', characterStateTimer = null, characterAnimationTimer = null;
 let characterAudio = null;
+let aiFormDirty = false;
 const CHARACTER_STATES = ['idle', 'walk', 'sleep', 'happy', 'sad', 'angry', 'tired', 'eat', 'touch', 'drag', 'fall', 'edge', 'battle', 'victory', 'defeat', 'talk'];
+const anyPanelOpen = () => overlayPanels.some((panel) => panel.classList.contains('open'));
 
 const randomLine = (values, fallback) => values.length ? values[Math.floor(Math.random() * values.length)] : fallback;
 const eventFeedback = (entry) => { const p = entry.payload || {}; if (entry.type === 'COMMISSION_COMPLETED') return { message: `委托完成，获得 ${p.xp} XP。`, state: 'happy' }; if (entry.type === 'LEVEL_UP') return { message: `升级至 Lv.${p.level}，新的能力已解锁。`, effect: 'win', state: 'victory' }; if (entry.type === 'CHECK_IN') return { message: `签到补给已送达：${p.coins} 金币。`, state: 'happy' }; if (entry.type === 'MAP_REWARD_CLAIMED') return { message: `发现补给：${p.coins} 金币，恢复 ${p.heal} HP。`, effect: 'reward', state: 'happy' }; if (entry.type === 'BATTLE_STARTED') return { message: `战斗开始！目标：${p.enemy || '未知敌人'}。`, effect: 'start', state: 'battle' }; if (entry.type === 'BATTLE_WON') return { message: `战斗胜利！获得 ${p.xp} XP 和 ${p.coins} 金币。`, effect: 'win', state: 'victory' }; if (entry.type === 'BATTLE_LOST') return { message: `宠物倒下了。状态下降至 ${p.condition}，恢复至 ${p.hp} HP。`, effect: 'lose', state: 'defeat' }; if (entry.type === 'SKILL_UPGRADED') return { message: `技能强化至 Lv.${p.level}，消耗 ${p.cost} 金币。`, effect: 'reward', state: 'happy' }; if (entry.type === 'EQUIPMENT_UPGRADED') return { message: `${p.name} 强化至 +${p.level}。`, effect: 'reward', state: 'happy' }; if (entry.type === 'ITEM_USED') return { message: `${p.name} 已使用。`, state: 'eat' }; if (entry.type === 'PET_CONDITION_CHANGED' && p.reason === 'missed_login') return { message: `漏登 ${p.missedDays} 天：状态 -${p.lost}${p.hpLost ? `，HP -${p.hpLost}` : ''}。`, effect: p.hpLost ? 'lose' : undefined, state: p.hpLost ? 'sad' : 'tired' }; if (entry.type === 'PET_CONDITION_CHANGED') return { message: `连接中断太久，状态下降了 ${p.lost}。`, state: 'tired' }; return null; };
@@ -31,25 +36,37 @@ const setCharacterState = (state, duration = 0) => {
   if (duration) characterStateTimer = setTimeout(() => setCharacterState('idle'), duration);
 };
 const showBubble = (content, duration = 3000, html = false) => { clearTimeout(messageTimer); if (html) bubble.innerHTML = content; else bubble.textContent = content; bubble.classList.add('show'); react(true); if (characterState === 'idle') setCharacterState('talk'); showingMessage = true; messageTimer = setTimeout(() => { bubble.classList.remove('show'); react(false); if (characterState === 'talk') setCharacterState('idle'); showingMessage = false; playNext(); }, duration); };
-const playNext = () => { if (showingMessage || !messageQueue.length || settingsPanel.classList.contains('open')) return; const next = messageQueue.shift(); if (typeof next === 'string') showBubble(next); else { playPetEffect(next.effect); if (next.state) setCharacterState(next.state, next.effect ? 3800 : 3200); showBubble(next.message, next.effect ? 3600 : 3000); } };
+const playNext = () => { if (showingMessage || !messageQueue.length || anyPanelOpen()) return; const next = messageQueue.shift(); if (typeof next === 'string') showBubble(next); else { playPetEffect(next.effect); if (next.state) setCharacterState(next.state, next.effect ? 3800 : 3200); showBubble(next.message, next.effect ? 3600 : 3000); } };
 const statsHtml = () => { const state = snapshot?.state; if (!state) return '<span>等待 Super Productivity…</span>'; const next = 100 + state.level * 25, stages = { stranger:'陌生', familiar:'熟悉', close:'亲近', trusted:'信赖', best_friend:'挚友' }; return `<strong>Lv.${state.level}</strong><span>XP ${state.xp} / ${next}</span><br><em>◆ ${state.pet.condition}</em><span> ♥ ${stages[state.pet.affinity?.stage] || '陌生'} ${state.pet.affinity?.points || 0}</span><br><span>🔥 ${state.streak} 天</span><span> ◈ ${state.coins}</span>`; };
 
 function renderSkin(skin) { const id = skin?.meta?.id || null; if (id === activeSkinId) return; activeSkinId = id; frame = 0; spriteState = 'idle'; petZone.classList.toggle('custom', Boolean(skin)); if (skin) { customSprite.style.backgroundImage = `url("${skin.imageDataUrl}")`; customSprite.style.backgroundSize = skin.meta.spriteVersionNumber >= 2 ? '800% 1100%' : '800% 900%'; customSprite.style.backgroundPosition = '0% 0%'; customSprite.title = skin.meta.displayName; } else { customSprite.style.backgroundImage = ''; customSprite.title = ''; } }
 function renderCharacter(character, legacySkin) { activeCharacter = legacySkin ? null : character; petZone.classList.toggle('manifest', Boolean(activeCharacter)); if (activeCharacter) { characterElement.title = activeCharacter.manifest.name; setCharacterState(characterState); } else { characterElement.textContent = ''; characterElement.style.backgroundImage = ''; } }
+function renderAi(ai) {
+  if (!ai) return;
+  if (!aiFormDirty) {
+    const settings = ai.settings || {}, profile = ai.profile || {};
+    document.getElementById('ai-enabled').checked = settings.enabled === true; document.getElementById('ai-endpoint').value = settings.endpoint || ''; document.getElementById('ai-model').value = settings.model || ''; document.getElementById('ai-personality').value = settings.personality || ''; document.getElementById('ai-speaking-style').value = settings.speakingStyle || ''; document.getElementById('ai-worldview').value = settings.worldview || ''; document.getElementById('ai-relationship').value = settings.relationship || '';
+    document.getElementById('profile-nickname').value = profile.nickname || ''; document.getElementById('profile-birthday').value = profile.birthday || ''; document.getElementById('profile-pet-name').value = profile.petName || ''; document.getElementById('profile-user-call-pet').value = profile.userCallPet || ''; document.getElementById('profile-pet-call-user').value = profile.petCallUser || ''; document.getElementById('profile-relationship').value = profile.relationship || ''; document.getElementById('profile-custom-fields').value = JSON.stringify(profile.customFields || {}, null, 2); document.getElementById('current-system-prompt').textContent = ai.systemPrompt || '';
+  }
+  const history = ai.history || [], log = document.getElementById('chat-log'), historyList = document.getElementById('history-list');
+  log.replaceChildren(...history.slice(-12).flatMap((entry) => [['user', entry.user], ['assistant', entry.assistant]].map(([role, value]) => { const item = document.createElement('div'); item.className = `chat-entry ${role}`; item.textContent = `${role === 'user' ? '你' : 'SPPet'}：${value}`; return item; })));
+  historyList.replaceChildren(...history.slice().reverse().map((entry) => { const item = document.createElement('article'); item.className = 'history-entry'; const time = document.createElement('time'); time.textContent = new Date(entry.timestamp).toLocaleString(); const body = document.createElement('div'); body.textContent = `${entry.user}\n${entry.assistant}`; const button = document.createElement('button'); button.textContent = '删除'; button.dataset.historyId = entry.id; item.append(time, body, button); return item; }));
+}
 function render(next) {
   snapshot = next; idleLines = next.petProfile?.idleLines?.filter(Boolean) || idleLines; clickLines = next.petProfile?.clickLines?.filter(Boolean) || clickLines; renderSkin(next.skin); renderCharacter(next.character, next.skin);
   pet.className = `pet ${next.state?.pet?.skinPart || ''}`; const connected = Boolean(next.bridge?.connected); document.getElementById('connection').className = `connection ${connected ? 'connected' : ''}`; document.getElementById('connection').textContent = connected ? `● CONNECTED // 127.0.0.1:${next.bridge.port}` : `● DISCONNECTED // 127.0.0.1:${next.bridge?.port || 47821}`; document.getElementById('data-dir').textContent = next.dataDirectory || '';
   const size = Number(next.petSettings?.size || 1); document.documentElement.style.setProperty('--scale', size); document.getElementById('size').value = String(Math.round(size * 100)); document.getElementById('size-label').textContent = `${Math.round(size * 100)}%`; document.getElementById('always-top').checked = next.petSettings?.alwaysOnTop !== false;
   document.getElementById('gravity').checked = next.petSettings?.gravityEnabled !== false; document.getElementById('auto-walk').checked = next.petSettings?.autoWalk === true; const list = document.getElementById('character-list'); list.replaceChildren(...(next.characters || []).map((entry) => { const option = document.createElement('option'); option.value = entry.id; option.textContent = `${entry.name}${entry.custom ? ' · 自定义' : ''}`; return option; })); list.value = next.character?.manifest?.id || 'default_pet'; document.getElementById('delete-character').disabled = !next.character?.custom;
+  renderAi(next.ai);
   for (const entry of next.events || []) { const feedback = eventFeedback(entry); if (feedback) messageQueue.push(feedback); } playNext();
 }
 
 window.petApi.onSnapshot(render);
 const setMouseInteractive = (interactive) => { const next = Boolean(interactive); if (mouseInteractive === next) return; mouseInteractive = next; window.petApi.setInteractive(next); };
-const syncMouseInteraction = (event) => { const target = document.elementFromPoint(event.clientX, event.clientY); const interactive = Boolean(dragGesture || settingsPanel.classList.contains('open') || contextMenu.classList.contains('open') || target?.closest('#pet-zone,#context-menu,#settings-panel,.drag-grip')); setMouseInteractive(interactive); };
+const syncMouseInteraction = (event) => { const target = document.elementFromPoint(event.clientX, event.clientY); const interactive = Boolean(dragGesture || anyPanelOpen() || contextMenu.classList.contains('open') || target?.closest('#pet-zone,#context-menu,.overlay-panel,.drag-grip')); setMouseInteractive(interactive); };
 window.addEventListener('mousemove', syncMouseInteraction, { passive: true });
 window.addEventListener('blur', () => { if (dragGesture?.moved) window.petApi.dragEnd(); dragGesture = null; setDragVisual(false); setMouseInteractive(false); });
-petZone.addEventListener('mouseenter', () => { setMouseInteractive(true); lastInteraction = Date.now(); if (!showingMessage && !settingsPanel.classList.contains('open')) showBubble(statsHtml(), 60_000, true); });
+petZone.addEventListener('mouseenter', () => { setMouseInteractive(true); lastInteraction = Date.now(); if (!showingMessage && !anyPanelOpen()) showBubble(statsHtml(), 60_000, true); });
 petZone.addEventListener('mouseleave', (event) => { lastInteraction = Date.now(); if (!dragGesture && !contextMenu.classList.contains('open')) syncMouseInteraction(event); if (!messageQueue.length) { clearTimeout(messageTimer); bubble.classList.remove('show'); react(false); showingMessage = false; } });
 const showClickLine = () => { lastInteraction = Date.now(); contextMenu.classList.remove('open'); window.petApi.touched(); setCharacterState('touch', 2200); showBubble(randomLine(clickLines, '收到！')); };
 const setDragVisual = (dragging, direction = null) => {
@@ -61,7 +78,7 @@ const setDragVisual = (dragging, direction = null) => {
   if (activeCharacter) setCharacterState(dragging ? 'drag' : 'idle');
 };
 petZone.addEventListener('pointerdown', (event) => {
-  if (event.button !== 0 || settingsPanel.classList.contains('open')) return;
+  if (event.button !== 0 || anyPanelOpen()) return;
   setMouseInteractive(true);
   event.preventDefault();
   petZone.setPointerCapture?.(event.pointerId);
@@ -91,16 +108,16 @@ const finishPointerGesture = (event, cancelled = false) => {
   setDragVisual(false);
   lastInteraction = Date.now();
   if (!moved && !cancelled) showClickLine();
-  setTimeout(() => { if (!petZone.matches(':hover') && !contextMenu.classList.contains('open') && !settingsPanel.classList.contains('open')) setMouseInteractive(false); }, 0);
+  setTimeout(() => { if (!petZone.matches(':hover') && !contextMenu.classList.contains('open') && !anyPanelOpen()) setMouseInteractive(false); }, 0);
 };
 petZone.addEventListener('pointerup', (event) => finishPointerGesture(event));
 petZone.addEventListener('pointercancel', (event) => finishPointerGesture(event, true));
 petZone.addEventListener('lostpointercapture', (event) => finishPointerGesture(event, true));
 window.addEventListener('pointerup', (event) => finishPointerGesture(event), true);
 window.addEventListener('pointercancel', (event) => finishPointerGesture(event, true), true);
-document.body.addEventListener('contextmenu', (event) => { event.preventDefault(); setMouseInteractive(true); lastInteraction = Date.now(); contextMenu.classList.toggle('open'); });
+document.body.addEventListener('contextmenu', (event) => { event.preventDefault(); setMouseInteractive(true); lastInteraction = Date.now(); if (!event.target.closest('.overlay-panel')) contextMenu.classList.toggle('open'); });
 document.body.addEventListener('click', (event) => { if (!event.target.closest('#context-menu') && !event.target.closest('#pet-zone')) { contextMenu.classList.remove('open'); syncMouseInteraction(event); } });
-setInterval(() => { if (Date.now() - lastInteraction > 45_000 && !showingMessage && !settingsPanel.classList.contains('open') && Math.random() < .38) { showBubble(randomLine(idleLines, '我会在这里等你。')); lastInteraction = Date.now(); } }, 12_000);
+setInterval(() => { if (Date.now() - lastInteraction > 45_000 && !showingMessage && !anyPanelOpen() && Math.random() < .38) { showBubble(randomLine(idleLines, '我会在这里等你。')); lastInteraction = Date.now(); } }, 12_000);
 setInterval(() => {
   if (!activeSkinId) return;
   const isRunning = spriteState === 'running-left' || spriteState === 'running-right';
@@ -111,9 +128,10 @@ setInterval(() => {
   customSprite.style.backgroundPosition = `${frame / 7 * 100}% ${row / (rowCount - 1) * 100}%`;
 }, 120);
 
-const openSettings = () => { setMouseInteractive(true); contextMenu.classList.remove('open'); settingsPanel.classList.add('open'); window.petApi.setSettingsOpen(true); };
-const closeSettings = () => { settingsPanel.classList.remove('open'); window.petApi.setSettingsOpen(false); setTimeout(() => { if (!petZone.matches(':hover')) setMouseInteractive(false); }, 0); };
-document.getElementById('open-settings').addEventListener('click', openSettings); document.getElementById('settings-close').addEventListener('click', closeSettings); window.petApi.onOpenSettings(openSettings);
+const openPanel = (panel) => { setMouseInteractive(true); contextMenu.classList.remove('open'); overlayPanels.forEach((entry) => entry.classList.toggle('open', entry === panel)); window.petApi.setSettingsOpen(true); };
+const closePanels = () => { overlayPanels.forEach((panel) => panel.classList.remove('open')); window.petApi.setSettingsOpen(false); playNext(); setTimeout(() => { if (!petZone.matches(':hover')) setMouseInteractive(false); }, 0); };
+const openSettings = () => openPanel(settingsPanel);
+document.getElementById('open-settings').addEventListener('click', openSettings); document.getElementById('open-chat').addEventListener('click', () => openPanel(chatPanel)); document.getElementById('open-history').addEventListener('click', () => openPanel(historyPanel)); document.querySelectorAll('.panel-close').forEach((button) => button.addEventListener('click', closePanels)); window.petApi.onOpenSettings(openSettings);
 document.getElementById('hide').addEventListener('click', () => window.petApi.hide()); document.getElementById('close').addEventListener('click', () => window.petApi.close());
 document.getElementById('skin').addEventListener('click', async () => { try { const skin = await window.petApi.selectSkin(); if (skin) { renderSkin(skin); showBubble(`已载入皮肤：${skin.meta.displayName}`); } } catch (error) { showBubble(error.message || String(error)); } });
 document.getElementById('clear-skin').addEventListener('click', async () => { await window.petApi.clearSkin(); renderSkin(null); showBubble('已恢复默认外观。'); });
@@ -128,4 +146,11 @@ document.getElementById('delete-character').addEventListener('click', async () =
 const saveBehavior = () => window.petApi.setBehavior({ gravityEnabled: document.getElementById('gravity').checked, autoWalk: document.getElementById('auto-walk').checked });
 document.getElementById('gravity').addEventListener('change', saveBehavior); document.getElementById('auto-walk').addEventListener('change', saveBehavior);
 document.getElementById('preview-character').addEventListener('click', () => setCharacterState(document.getElementById('preview-state').value, 4000));
+document.querySelectorAll('#settings-panel details input,#settings-panel details textarea').forEach((element) => element.addEventListener('input', () => { aiFormDirty = true; }));
+const refreshAiForm = async () => { aiFormDirty = false; renderAi(await window.petApi.getAiSnapshot()); };
+document.getElementById('save-ai').addEventListener('click', async () => { const message = document.getElementById('settings-message'); try { const apiKey = document.getElementById('ai-key').value; if (apiKey) await window.petApi.setAiKey(apiKey); await window.petApi.updateAiSettings({ enabled: document.getElementById('ai-enabled').checked, endpoint: document.getElementById('ai-endpoint').value, model: document.getElementById('ai-model').value, personality: document.getElementById('ai-personality').value, speakingStyle: document.getElementById('ai-speaking-style').value, worldview: document.getElementById('ai-worldview').value, relationship: document.getElementById('ai-relationship').value }); document.getElementById('ai-key').value = ''; await refreshAiForm(); message.textContent = 'AI 设置已保存；Prompt 变更已重置短期上下文。'; } catch (error) { message.textContent = error.message || String(error); } });
+document.getElementById('save-profile').addEventListener('click', async () => { const message = document.getElementById('settings-message'); try { await window.petApi.updateProfile({ nickname: document.getElementById('profile-nickname').value, birthday: document.getElementById('profile-birthday').value, petName: document.getElementById('profile-pet-name').value, userCallPet: document.getElementById('profile-user-call-pet').value, petCallUser: document.getElementById('profile-pet-call-user').value, relationship: document.getElementById('profile-relationship').value, customFields: document.getElementById('profile-custom-fields').value }); await refreshAiForm(); message.textContent = '御主档案已保存。'; } catch (error) { message.textContent = `保存失败：${error.message || String(error)}`; } });
+document.getElementById('send-chat').addEventListener('click', async () => { const input = document.getElementById('chat-input'), message = document.getElementById('chat-message'), value = input.value.trim(); if (!value) return; message.textContent = '正在请求…'; document.getElementById('send-chat').disabled = true; try { await window.petApi.chat(value); input.value = ''; message.textContent = ''; setCharacterState('talk', 3000); } catch (error) { message.textContent = error.message || String(error); } finally { document.getElementById('send-chat').disabled = false; } });
+document.getElementById('history-list').addEventListener('click', async (event) => { const button = event.target.closest('[data-history-id]'); if (!button) return; await window.petApi.deleteHistory(button.dataset.historyId); document.getElementById('history-message').textContent = '该条历史已从本地存储删除。'; });
+document.getElementById('clear-history').addEventListener('click', async () => { if (!confirm('从本地存储清空全部对话历史？')) return; await window.petApi.clearHistory(); document.getElementById('history-message').textContent = '全部历史已清空。'; });
 setMouseInteractive(false);

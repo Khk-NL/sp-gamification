@@ -25,7 +25,7 @@ const [appDirectory] = await packager({
   ignore: [/^\/node_modules(?:\/|$)/, /^\/release(?:\/|$)/],
 });
 
-const zipPath = path.join(release, 'SPPet-v0.7.0-win-x64.zip');
+const zipPath = path.join(release, 'SPPet-v0.8.0-win-x64.zip');
 await new Promise((resolve, reject) => {
   const output = createWriteStream(zipPath);
   const archive = archiver('zip', { zlib: { level: 9 } });

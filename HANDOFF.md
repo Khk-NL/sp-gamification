@@ -2,7 +2,7 @@
 
 ## 当前阶段
 
-Phase 4 已完成，当前版本 `0.7.0`；下一阶段为 Phase 5（AI 聊天与角色上下文）。
+Phase 5 已完成，当前版本 `0.8.0`；下一阶段为 Phase 6（屏幕和系统感知）。
 
 ## 已完成
 
@@ -15,6 +15,7 @@ Phase 4 已完成，当前版本 `0.7.0`；下一阶段为 Phase 5（AI 聊天�
 - 背包、重复消耗品、商店轮换、技能强化和装备强化已形成完整金币消费路径。
 - 桌宠具备可选重力、底部站立、屏幕边缘吸附、多显示器约束和默认关闭的间歇行走。
 - AssetManager 统一加载内置/自定义角色，可切换、删除、预览和热重载 emoji、静态图、逐帧动画及状态音效。
+- 独立 AI Service 提供可编辑角色 Prompt、御主档案、OpenAI-compatible 聊天和实际本地历史删除；AI 默认关闭且 API Key 不落盘。
 
 ## 重要文件
 
@@ -24,6 +25,7 @@ Phase 4 已完成，当前版本 `0.7.0`；下一阶段为 Phase 5（AI 聊天�
 - `packages/sp-plugin/src/plugin.ts`：SP hooks、事件适配、持久化与本地/在线通信。
 - `packages/desktop-pet/src/main.cjs`：桌宠窗口、本地 WebSocket 与 IPC。
 - `packages/desktop-pet/src/asset-manager.cjs`：角色 manifest、资源校验、缓存、导入与回退。
+- `packages/desktop-pet/src/ai-service.cjs`：AI 配置、System Prompt、御主档案、短期上下文和本地历史。
 - `DEVELOP_LOG.md`：阶段审计和完成记录。
 
 ## 当前数据结构
@@ -40,9 +42,9 @@ Phase 4 已完成，当前版本 `0.7.0`；下一阶段为 Phase 5（AI 聊天�
 
 - 高优先级任务暂以 SP 标签 `high`、`high priority`、`高优先级` 或 `重要` 判断；官方 Plugin API 当前暴露的任务类型没有稳定优先级字段。
 - Event Bus 已覆盖现实行为入口；战斗/商店 UI 命令仍由插件适配层调用 core，待对应模块拆分阶段继续迁移。
-- 桌宠暂不识别其他应用窗口顶部；Spine/Live2D、多层实时换装、AI、生产力模块、`/api/v1` 在线服务与更新器尚未完成。
+- 桌宠暂不识别其他应用窗口顶部；Spine/Live2D、多层实时换装、系统感知、生产力模块、长期记忆、`/api/v1` 在线服务与更新器尚未完成。
 - pnpm 当前运行时版本与已有 `node_modules` 元数据不一致，会尝试重装；本阶段使用仓库现有 `node_modules/.bin` 工具验证，没有重装依赖。
 
 ## 下一阶段
 
-Phase 5 建立独立 AI Provider 边界、可编辑 System Prompt、御主档案、角色上下文和本地对话历史。
+Phase 6 建立默认关闭、明确授权的当前窗口/进程感知，并避免把敏感数据自动发送给 AI。

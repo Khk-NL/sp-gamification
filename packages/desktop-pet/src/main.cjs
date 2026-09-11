@@ -5,6 +5,7 @@ const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
 const { AssetManager } = require('./asset-manager.cjs');
+const { AiService } = require('./ai-service.cjs');
 
 const appData = process.env.APPDATA || os.homedir();
 const DATA_DIRECTORY = process.env.SPPET_DATA_DIR || process.env.SP_GAMIFICATION_DATA_DIR || path.join(appData, 'SPPet');
@@ -21,6 +22,7 @@ let windowRef, tray, watcher, characterWatcher, readTimer, bridgeServer, dragSes
 let bridgeConnected = false, bridgeLastSync = null, lastEventId = null, initialized = false;
 const bridgeSockets = new Set();
 const assetManager = new AssetManager(path.join(__dirname, '..', 'assets', 'characters'), CHARACTERS_DIRECTORY);
+const aiService = new AiService(DATA_DIRECTORY);
 
 const readJson = (file, fallback) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; } };
 const writeJsonAtomic = (file, value) => { const temp = `${file}.${process.pid}.tmp`; fs.writeFileSync(temp, `${JSON.stringify(value, null, 2)}\n`, 'utf8'); fs.renameSync(temp, file); };
@@ -43,7 +45,7 @@ const publishSnapshot = () => {
   if (!initialized) { const cursor = readJson(CURSOR_FILE, { lastEventId: null }); lastEventId = typeof cursor.lastEventId === 'string' ? cursor.lastEventId : events.at(-1)?.id ?? null; initialized = true; }
   let cursorIndex = lastEventId ? events.findIndex((entry) => entry.id === lastEventId) : -1; if (lastEventId && cursorIndex < 0) cursorIndex = events.length - 1; const unseen = cursorIndex >= 0 ? events.slice(cursorIndex + 1) : lastEventId ? [] : events;
   if (unseen.length) { lastEventId = unseen.at(-1).id; writeJsonAtomic(CURSOR_FILE, { lastEventId, updatedAt: new Date().toISOString() }); }
-  windowRef.webContents.send('sppet-snapshot', { state, events: unseen, dataDirectory: DATA_DIRECTORY, bridge: { connected: bridgeConnected, port: BRIDGE_PORT, lastSync: bridgeLastSync }, skin: currentSkin(), character: currentCharacter(), characters: assetManager.list(), petSettings: readJson(PET_SETTINGS_FILE, { size: 1, alwaysOnTop: true, gravityEnabled: true, autoWalk: false }), petProfile: readJson(PET_PROFILE_FILE, { idleLines: [], clickLines: [] }) });
+  windowRef.webContents.send('sppet-snapshot', { state, events: unseen, dataDirectory: DATA_DIRECTORY, bridge: { connected: bridgeConnected, port: BRIDGE_PORT, lastSync: bridgeLastSync }, skin: currentSkin(), character: currentCharacter(), characters: assetManager.list(), petSettings: readJson(PET_SETTINGS_FILE, { size: 1, alwaysOnTop: true, gravityEnabled: true, autoWalk: false }), petProfile: readJson(PET_PROFILE_FILE, { idleLines: [], clickLines: [] }), ai: { ...aiService.snapshot(), systemPrompt: aiService.systemPrompt() } });
 };
 const scheduleRead = () => { clearTimeout(readTimer); readTimer = setTimeout(publishSnapshot, 90); };
 
@@ -96,4 +98,11 @@ ipcMain.handle('pet-import-character', async () => { const result = await dialog
 ipcMain.handle('pet-select-character', async (_event, id) => { const characterId = String(id); if (!assetManager.find(characterId)) throw new Error('角色不存在'); const character = assetManager.load(characterId); updatePetSettings({ characterId: character.manifest.id, skinJsonPath: null }); publishSnapshot(); return character; });
 ipcMain.handle('pet-delete-character', async (_event, id) => { assetManager.remove(String(id)); updatePetSettings({ characterId: 'default_pet' }); publishSnapshot(); return true; });
 ipcMain.handle('pet-set-behavior', async (_event, changes) => { const next = updatePetSettings({ gravityEnabled: changes?.gravityEnabled !== false, autoWalk: changes?.autoWalk === true }); publishSnapshot(); return next; });
+ipcMain.handle('ai-update-settings', async (event, changes) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); const value = aiService.updateSettings(changes || {}); publishSnapshot(); return value; });
+ipcMain.handle('ai-update-profile', async (event, changes) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); const value = aiService.updateProfile(changes || {}); publishSnapshot(); return value; });
+ipcMain.handle('ai-get-snapshot', async (event) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); return { ...aiService.snapshot(), systemPrompt: aiService.systemPrompt() }; });
+ipcMain.handle('ai-set-key', async (event, value) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); const stored = aiService.setSessionApiKey(value); publishSnapshot(); return stored; });
+ipcMain.handle('ai-chat', async (event, value) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); const entry = await aiService.chat(value); publishSnapshot(); return entry; });
+ipcMain.handle('ai-delete-history', async (event, id) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); const removed = aiService.deleteHistory(String(id)); publishSnapshot(); return removed; });
+ipcMain.handle('ai-clear-history', async (event) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); aiService.clearHistory(); publishSnapshot(); return true; });
 app.on('before-quit', () => { watcher?.close(); characterWatcher?.close(); bridgeServer?.close(); clearTimeout(readTimer); clearInterval(fallTimer); clearInterval(walkTimer); }); app.on('window-all-closed', () => {});

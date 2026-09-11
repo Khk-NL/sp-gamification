@@ -129,3 +129,28 @@
 ### 下一阶段
 
 - Phase 5：独立 AI 模块、可编辑 System Prompt、御主档案、角色上下文和本地对话历史。
+
+## Phase 5：AI 聊天与角色上下文（2026-09-12，v0.8.0）
+
+### 已完成
+
+- 新增独立 `AiService`，桌宠主进程仅通过服务接口读取配置、档案、历史和发起对话。
+- AI 默认关闭；支持 OpenAI-compatible Chat Completions，远程接口强制 HTTPS，本机服务允许 localhost HTTP。
+- 设置页可编辑性格、说话方式、世界观和关系，并显示当前完整 System Prompt；Prompt 更新后清空内存中的短期上下文。
+- 新增 `%APPDATA%\SPPet\profile.json`，保存 nickname、birthday、petName、userCallPet、petCallUser、relationship、customFields，并在每次 AI 请求中注入。
+- 右键菜单新增 AI 聊天和历史记录；`chat-history.json` 最多保留最近 500 轮，可按真实 id 删除或清空实际文件。
+- API Key 只从 `SPPET_AI_API_KEY` 或当前设置会话进入进程内存，不写入 JSON、日志或仓库。
+
+### 验证
+
+- AI Service 测试覆盖档案/Prompt 持久化、API Key 不落盘、短期上下文连续、Prompt 变更重置、历史删除/清空和非本机 HTTP 拒绝。
+- 桌宠主进程、preload 和 renderer 语法检查纳入阶段集中验证。
+
+### 已知边界
+
+- 长期记忆、embedding、本地向量检索属于路线图 Phase 9；当前删除接口已直接作用于对话历史，后续长期记忆会复用同一来源 id。
+- 当前只实现文字聊天，不自动读取屏幕、窗口、任务、日记或其他私人数据。
+
+### 下一阶段
+
+- Phase 6：默认关闭的当前窗口/进程感知，以及明确授权和本地事件边界。

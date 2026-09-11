@@ -36,7 +36,7 @@ pnpm package:plugin
 生成：
 
 ```text
-packages\sp-plugin\release\SPPet-SP-v0.7.0.zip
+packages\sp-plugin\release\SPPet-SP-v0.8.0.zip
 ```
 
 在 Super Productivity“设置 → 插件 → 选择插件文件”中导入。最低支持 SP 18.21.2。
@@ -57,7 +57,7 @@ pnpm dev:pet
 pnpm package:pet
 ```
 
-解压 `SPPet-v0.7.0-win-x64.zip`，运行 `SPPet.exe`。桌宠默认只显示角色：
+解压 `SPPet-v0.8.0-win-x64.zip`，运行 `SPPet.exe`。桌宠默认只显示角色：
 
 - 悬停：显示 Lv、XP、状态值、streak、金币。
 - 左键：播放用户设置的互动台词。
@@ -67,6 +67,13 @@ pnpm package:pet
 - 右键设置可启用间歇行走，并导入、预览、切换或删除独立 `manifest.json` 角色包。
 
 自定义皮肤格式见 `packages/desktop-pet/CUSTOM_SKINS.md`。
+
+## AI 聊天
+
+- 右键桌宠可打开“AI 聊天”和“历史记录”；AI 默认关闭。
+- 在桌宠设置的“AI 与御主档案”中配置 OpenAI-compatible HTTPS 接口、模型、角色性格/说话方式/世界观/关系，以及 `profile.json` 档案字段。
+- API Key 只保留在桌宠当前进程内，也可通过 `SPPET_AI_API_KEY` 环境变量提供；不会写入配置文件。
+- 修改角色 Prompt 会立即清空短期对话上下文，但保留本地历史；历史页删除会同步修改 `%APPDATA%\SPPet\chat-history.json`。
 
 ## 游戏规则
 
