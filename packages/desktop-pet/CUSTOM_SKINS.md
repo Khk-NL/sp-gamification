@@ -36,19 +36,21 @@ my-pet/
       "loop": true
     }
   },
-  "outfits": [],
-  "accessories": [],
-  "effects": {},
+  "outfits": [{"id":"coat","name":"外套","resource":"outfits/coat.png"}],
+  "accessories": [{"id":"hat","name":"帽子","resource":"accessories/hat.png"}],
+  "effects": [{"id":"halo","name":"光环","resource":"effects/halo.png"}],
+  "weather": [{"id":"rain","name":"雨","resource":"weather/rain.png"}],
   "sounds": { "happy": "sounds/happy.ogg" }
 }
 ```
 
 - `type` 可为 `emoji` 或 `sprite`。emoji 角色直接把 emoji 写进 `states`；sprite 角色支持 PNG、WebP、GIF、APNG，单文件上限 15MB。
 - 必须提供 `idle`。其余状态缺失或可选动画损坏时自动回退到 `idle`，不会阻止桌宠启动。
-- 已预留 `outfits`、`accessories`、`effects`、`sounds` 图层和资源接口；当前版本先切换完整角色资源组。
+- `outfits`、`accessories`、`effects`、`weather` 会作为独立图层叠加在基础角色上，可在设置中分别切换。
 - 状态音效支持 MP3、Ogg、WAV，并与对应动作同时播放。
 - 可在设置中预览动作、切换角色和删除用户角色。内置角色不能删除。
-- `.sppetpack`、Spine、Live2D 是后续扩展格式，当前版本不处理。
+- 可把上述目录直接压缩为 ZIP 并改扩展名为 `.sppetpack`。程序会校验路径、符号链接和 15MB 单文件/50MB 总量限制后导入。
+- Spine、Live2D 保留为后续扩展，当前版本不解析。
 
 ## 兼容旧格式：pet.json
 

@@ -19,6 +19,6 @@ test('vision permission is independently disabled by default', (context) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sppet-awareness-settings-'));
   context.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const awareness = new SystemAwareness(root);
-  assert.deepEqual(awareness.settings(), { currentWindowEnabled: false, visionEnabled: false });
-  assert.deepEqual(awareness.updateSettings({ visionEnabled: true }), { currentWindowEnabled: false, visionEnabled: true });
+  assert.deepEqual(awareness.settings(), { currentWindowEnabled: false, visionEnabled: false, clipboardEnabled: false, fileManagementEnabled: false, telemetryEnabled: false });
+  assert.deepEqual(awareness.updateSettings({ visionEnabled: true }), { currentWindowEnabled: false, visionEnabled: true, clipboardEnabled: false, fileManagementEnabled: false, telemetryEnabled: false });
 });

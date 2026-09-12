@@ -5,6 +5,13 @@ const resist = (changes: Partial<Resistances> = {}): Resistances => ({ ...ZERO_R
 
 export const DEFAULT_CONTENT: GameContent = {
   version: 1,
+  battleVisuals: {
+    physical: { color: '#a69a8c', hitEffect: 'physical', shieldEffect: 'physical' },
+    fire: { color: '#f06a42', hitEffect: 'fire', shieldEffect: 'fire' },
+    water: { color: '#3e9ed8', hitEffect: 'water', shieldEffect: 'water' },
+    ice: { color: '#8de8f2', hitEffect: 'ice', shieldEffect: 'ice' },
+    electric: { color: '#f1cf3f', hitEffect: 'electric', shieldEffect: 'electric' },
+  },
   skills: [
     { id: 'strike', name: '战术打击', nameEn: 'Tactical Strike', description: '造成攻击 ×1 的物理伤害。', cost: 1, type: 'physical', power: 1 },
     { id: 'brace', name: '防御姿态', nameEn: 'Brace', description: '造成攻击 ×0.5 的物理伤害，获得 10 点物理护盾。', cost: 1, type: 'physical', power: 0.5, block: 10 },
@@ -56,5 +63,8 @@ export const normalizeContent = (input: unknown): GameContent => {
   const skills = value.skills.map((skill) => ({ ...skill, power: multiplierTier(skill.power), weaken: percentTier(skill.weaken) || undefined }));
   const items = value.items.map((item) => { const effects = item.effects ? { ...item.effects } : undefined; if (effects) { effects.xpBonus = percentTier(effects.xpBonus) || undefined; effects.coinBonus = percentTier(effects.coinBonus) || undefined; if (effects.damageBonus) effects.damageBonus = Object.fromEntries(Object.entries(effects.damageBonus).map(([type, amount]) => [type, percentTier(amount)])); } return { ...item, effects }; });
   const chapters = value.chapters.filter((chapter) => chapter && Array.isArray(chapter.enemies) && chapter.enemies.length).map((chapter) => ({ ...chapter, enemies: chapter.enemies.map((enemy) => ({ ...enemy, element: enemy.element && damageTypes.includes(enemy.element) ? enemy.element : 'physical', resistances: { ...ZERO_RESISTANCE, ...(enemy.resistances ?? {}) }, intents: Array.isArray(enemy.intents) && enemy.intents.length ? enemy.intents.filter((intent) => intent && ['attack', 'guard', 'buff'].includes(intent.kind) && (!intent.type || damageTypes.includes(intent.type))) : [{ kind: 'attack' as const, value: 5, type: 'physical' as const, label: '攻击 5', labelEn: 'Attack 5' }] })) }));
-  return chapters.length ? { version: Number(value.version) || 1, skills, items, chapters } : DEFAULT_CONTENT;
+  const safeToken = (candidate: unknown, fallback: string): string => typeof candidate === 'string' && /^[a-z0-9-]{1,32}$/i.test(candidate) ? candidate : fallback;
+  const safeColor = (candidate: unknown, fallback: string): string => typeof candidate === 'string' && /^#[0-9a-f]{6}$/i.test(candidate) ? candidate : fallback;
+  const battleVisuals = Object.fromEntries(damageTypes.map((type) => { const fallback = DEFAULT_CONTENT.battleVisuals[type], visual = value.battleVisuals?.[type]; return [type, { color: safeColor(visual?.color, fallback.color), hitEffect: safeToken(visual?.hitEffect, fallback.hitEffect), shieldEffect: safeToken(visual?.shieldEffect, fallback.shieldEffect) }]; })) as GameContent['battleVisuals'];
+  return chapters.length ? { version: Number(value.version) || 1, skills, items, chapters, battleVisuals } : DEFAULT_CONTENT;
 };

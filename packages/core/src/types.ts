@@ -15,9 +15,12 @@ export interface ItemDefinition {
 export interface EnemyIntent { kind: 'attack' | 'guard' | 'buff'; value: number; type?: DamageType; label: string; labelEn: string; }
 export interface EnemyDefinition { id: string; name: string; nameEn: string; element?: DamageType; maxHp: number; attack: number; defense: number; resistances: Resistances; intents: EnemyIntent[]; xp: number; coins: number; isBoss?: boolean; storyBefore?: string[]; storyAfter?: string[]; }
 export interface ChapterDefinition { id: string; name: string; nameEn: string; summary: string; enemies: EnemyDefinition[]; }
-export interface GameContent { version: number; skills: SkillDefinition[]; items: ItemDefinition[]; chapters: ChapterDefinition[]; }
+export interface BattleVisualDefinition { color: string; hitEffect: string; shieldEffect: string; }
+export interface GameContent { version: number; skills: SkillDefinition[]; items: ItemDefinition[]; chapters: ChapterDefinition[]; battleVisuals: Record<DamageType, BattleVisualDefinition>; }
+export type RecruitmentRewardType = 'skill' | 'action' | 'expression' | 'bubble' | 'background' | 'effect' | 'story' | 'personality' | 'decoration';
+export interface RecruitmentReward { id: string; name: string; type: RecruitmentRewardType; rarity: 'common' | 'rare'; skillId?: string; }
 
-export type SPPetEventType = 'TASK_COMPLETED' | 'FOCUS_SESSION_FINISHED' | 'FOCUS_TIMER_COMPLETED' | 'DAILY_COMMISSION_COMPLETED' | 'COMMISSION_COMPLETED' | 'DAILY_CHECK_IN' | 'CHECK_IN' | 'COURSE_STARTING' | 'GOAL_PROGRESS_UPDATED' | 'IMPORTANT_DATE_APPROACHING' | 'JOURNAL_CREATED' | 'ITEM_USED' | 'PET_FED' | 'PET_TOUCHED' | 'BATTLE_STARTED' | 'BATTLE_WON' | 'BATTLE_LOST' | 'AFFINITY_CHANGED' | 'STATUS_CHANGED' | 'LEVEL_UP' | 'ACTIVE_WINDOW_CHANGED' | 'SYSTEM_LOAD_HIGH' | 'NETWORK_CHANGED' | 'STREAK_UPDATED' | 'MAP_REWARD_CLAIMED' | 'SKILL_USED' | 'SKILL_UPGRADED' | 'EQUIPMENT_UPGRADED' | 'SHOP_REFRESHED' | 'ENEMY_ACTION' | 'CHAPTER_COMPLETED' | 'ITEM_PURCHASED' | 'ITEM_EQUIPPED' | 'PET_CONDITION_CHANGED' | 'PLAY_MODE_CHANGED' | 'DEBUG_XP' | 'DEBUG_COINS' | 'STATE_RESET';
+export type SPPetEventType = 'TASK_COMPLETED' | 'FOCUS_SESSION_FINISHED' | 'FOCUS_TIMER_COMPLETED' | 'DAILY_COMMISSION_COMPLETED' | 'COMMISSION_COMPLETED' | 'DAILY_CHECK_IN' | 'CHECK_IN' | 'COURSE_STARTING' | 'GOAL_PROGRESS_UPDATED' | 'IMPORTANT_DATE_APPROACHING' | 'JOURNAL_CREATED' | 'ITEM_USED' | 'PET_FED' | 'PET_TOUCHED' | 'BATTLE_STARTED' | 'BATTLE_WON' | 'BATTLE_LOST' | 'AFFINITY_CHANGED' | 'STATUS_CHANGED' | 'LEVEL_UP' | 'ACTIVE_WINDOW_CHANGED' | 'SYSTEM_LOAD_HIGH' | 'NETWORK_CHANGED' | 'STREAK_UPDATED' | 'MAP_REWARD_CLAIMED' | 'SKILL_USED' | 'SKILL_UPGRADED' | 'EQUIPMENT_UPGRADED' | 'SHOP_REFRESHED' | 'ENEMY_ACTION' | 'CHAPTER_COMPLETED' | 'ITEM_PURCHASED' | 'ITEM_EQUIPPED' | 'PET_CONDITION_CHANGED' | 'PLAY_MODE_CHANGED' | 'RECRUIT_TICKET_EARNED' | 'RECRUITMENT_RESULT' | 'DEBUG_XP' | 'DEBUG_COINS' | 'STATE_RESET';
 export interface SPPetEvent { id: string; type: SPPetEventType; timestamp: string; payload: Record<string, string | number | boolean | null>; }
 export interface BattleState {
   enemyId: string; enemyName: string; enemyHp: number; enemyMaxHp: number; enemyDefense: number; enemyResistances: Resistances;
@@ -27,7 +30,7 @@ export interface BattleState {
   phase: 'story_before' | 'combat' | 'story_after'; storyIndex: number; rewardsClaimed: boolean;
 }
 export interface SPPetState {
-  version: 6; mode: PlayMode; level: number; xp: number; coins: number; streak: number; lastActiveDate: string | null; lastLoginDate: string | null;
+  version: 7; mode: PlayMode; level: number; xp: number; coins: number; streak: number; lastActiveDate: string | null; lastLoginDate: string | null;
   totalTasksCompleted: number; totalFocusMinutes: number; totalBattlesWon: number; today: { date: string; tasksCompleted: number; xpEarned: number; focusRewardSteps: number; focusTimerRewards: number };
   processedTaskIds: string[]; processedFocusSessionIds: string[]; observedFocusMinutesByTask: Record<string, number>;
   commissions: { date: string; tasks: { progress: number; target: number; claimed: boolean }; focus: { progress: number; target: number; claimed: boolean }; priority: { progress: number; target: number; claimed: boolean }; review: { progress: number; target: number; claimed: boolean } };
@@ -42,6 +45,7 @@ export interface SPPetState {
   };
   shop: { date: string; refreshCount: number; rotation: string[] };
   adventure: { chapterIndex: number; encounterIndex: number; claimedMapRewards: string[]; activeBattle: BattleState | null };
+  recruitment: { tickets: number; pity: number; owned: string[]; ticketSources: string[]; weekly: { weekKey: string; completedDays: string[] } };
   updatedAt: string;
 }
 export interface EngineResult { state: SPPetState; events: SPPetEvent[]; }

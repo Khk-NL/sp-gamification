@@ -16,12 +16,14 @@ import {
   onDailyReviewCompleted,
   onFocusTimeAdded,
   onFocusSessionCompleted,
+  onGoalProgressUpdated,
   onPetConnectionChecked,
   onPetTouched,
   onTaskCompleted,
   purchaseItem,
   equipItem,
   resetState,
+  recruit,
   seedFocusTime,
   setEquippedSkills,
   setPlayMode,
@@ -48,7 +50,7 @@ const STATE_KEY = 'gamification-state-v1'; // Legacy key retained so v0.1/v0.2 u
 const SETTINGS_KEY = 'sppet-settings-v1';
 const CONTENT_KEY = 'sppet-content-v1';
 const PET_BRIDGE_URL = 'ws://127.0.0.1:47821';
-const PLUGIN_VERSION = '0.13.0';
+const PLUGIN_VERSION = '0.14.0';
 
 interface PluginSettings extends GameRules {
   language: 'zh' | 'en';
@@ -99,6 +101,7 @@ interface CoreEvents {
   SKILL_UPGRADED: { skillId: string };
   EQUIPMENT_UPGRADED: { itemId: string };
   SHOP_REFRESHED: Record<string, never>;
+  GOAL_PROGRESS_UPDATED: { goalId: string; progress: number; occurredAt?: string };
 }
 const coreEvents = new EventBus<CoreEvents>();
 
@@ -123,7 +126,7 @@ const connectBridge = (): void => {
   try {
     socket = new WebSocket(PET_BRIDGE_URL);
     socket.addEventListener('open', () => { bridgeStatus = 'connected'; registerConnection(true); sendBridgeSnapshot(); });
-    socket.addEventListener('message', (message) => { void (async () => { try { const payload = JSON.parse(String(message.data)); if (payload.type === 'ACK') { bridgeLastAck = typeof payload.receivedAt === 'string' ? payload.receivedAt : new Date().toISOString(); const received = new Set(Array.isArray(payload.eventIds) ? payload.eventIds : []); pendingEvents = pendingEvents.filter((entry) => !received.has(entry.id)); } else if (payload.type === 'PET_TOUCHED') await coreEvents.emit('PET_TOUCHED', {}); else if (payload.type === 'FOCUS_TIMER_COMPLETED') { const sessionId = String(payload.sessionId || ''); await coreEvents.emit('DESKTOP_FOCUS_COMPLETED', { sessionId, minutes: Number(payload.minutes), occurredAt: typeof payload.occurredAt === 'string' ? payload.occurredAt : undefined }); if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'DESKTOP_EVENT_ACK', eventType: payload.type, sessionId })); } } catch { /* Local malformed frames are ignored. */ } })(); });
+    socket.addEventListener('message', (message) => { void (async () => { try { const payload = JSON.parse(String(message.data)); if (payload.type === 'ACK') { bridgeLastAck = typeof payload.receivedAt === 'string' ? payload.receivedAt : new Date().toISOString(); const received = new Set(Array.isArray(payload.eventIds) ? payload.eventIds : []); pendingEvents = pendingEvents.filter((entry) => !received.has(entry.id)); } else if (payload.type === 'PET_TOUCHED') await coreEvents.emit('PET_TOUCHED', {}); else if (payload.type === 'GOAL_PROGRESS_UPDATED') await coreEvents.emit('GOAL_PROGRESS_UPDATED', { goalId: String(payload.goalId || payload.id || ''), progress: Number(payload.progress), occurredAt: typeof payload.occurredAt === 'string' ? payload.occurredAt : undefined }); else if (payload.type === 'FOCUS_TIMER_COMPLETED') { const sessionId = String(payload.sessionId || ''); await coreEvents.emit('DESKTOP_FOCUS_COMPLETED', { sessionId, minutes: Number(payload.minutes), occurredAt: typeof payload.occurredAt === 'string' ? payload.occurredAt : undefined }); if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'DESKTOP_EVENT_ACK', eventType: payload.type, sessionId })); } } catch { /* Local malformed frames are ignored. */ } })(); });
     socket.addEventListener('close', () => { const wasConnected = bridgeStatus === 'connected'; bridgeStatus = 'disconnected'; socket = null; if (wasConnected) registerConnection(false); scheduleReconnect(); });
     socket.addEventListener('error', () => { bridgeStatus = 'disconnected'; });
   } catch { bridgeStatus = 'disconnected'; scheduleReconnect(); }
@@ -158,6 +161,7 @@ coreEvents.on('BATTLE_TURN_ENDED', async () => { await runEngine((current, _cfg,
 coreEvents.on('SKILL_UPGRADED', async (payload) => { await runEngine((current, _cfg, gameContent) => upgradeSkill(current, payload.skillId, gameContent)); });
 coreEvents.on('EQUIPMENT_UPGRADED', async (payload) => { await runEngine((current, _cfg, gameContent) => upgradeEquipment(current, payload.itemId, gameContent)); });
 coreEvents.on('SHOP_REFRESHED', async () => { await runEngine((current, _cfg, gameContent) => refreshShop(current, gameContent)); });
+coreEvents.on('GOAL_PROGRESS_UPDATED', async (payload) => { await runEngine((current) => onGoalProgressUpdated(current, payload.goalId, payload.progress, payload.occurredAt)); });
 
 PluginAPI.registerHook(PluginAPI.Hooks.TASK_COMPLETE, async (payload) => { const task = payload?.task as SpTask | undefined; const tags = task?.resolvedTagNames ?? []; await coreEvents.emit('TASK_COMPLETED', { taskId: payload?.taskId ?? task?.id ?? '', highPriority: tags.some((tag) => /^(high|high priority|高优先级|重要)$/i.test(tag.trim())), occurredAt: payload?.task?.doneOn ?? Date.now() }); });
 PluginAPI.registerHook(PluginAPI.Hooks.TASK_UPDATE, async (payload) => { const task = payload?.task as SpTask | undefined; if (!task?.id || !Object.prototype.hasOwnProperty.call(payload?.changes ?? {}, 'timeSpent')) return; await coreEvents.emit('FOCUS_SESSION_FINISHED', { sourceId: task.id, sourceTotalMinutes: task.timeSpent / 60_000 }); });
@@ -190,6 +194,7 @@ PluginAPI.onMessage?.(async (message: unknown) => {
       case 'upgradeSkill': await coreEvents.emit('SKILL_UPGRADED', { skillId: String(data.skillId ?? '') }); break;
       case 'upgradeEquipment': await coreEvents.emit('EQUIPMENT_UPGRADED', { itemId: String(data.itemId ?? '') }); break;
       case 'refreshShop': await coreEvents.emit('SHOP_REFRESHED', {}); break;
+      case 'recruit': await runEngine((current) => recruit(current, String(data.seed ?? ''))); break;
       case 'setEquippedSkills': await runEngine((current, _cfg, gameContent) => setEquippedSkills(current, Array.isArray(data.skillIds) ? data.skillIds.map(String) : [], gameContent)); break;
       case 'purchaseItem': await runEngine((current, _cfg, gameContent) => purchaseItem(current, String(data.itemId ?? ''), gameContent)); break;
       case 'equipItem': await runEngine((current, _cfg, gameContent) => equipItem(current, String(data.itemId ?? ''), gameContent)); break;

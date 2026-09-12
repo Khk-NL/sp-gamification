@@ -365,19 +365,19 @@ textarea {
 .pet-fighter { --element-color: #b9b1a4; }
 .element-fire,
 .shield-fire,
-.skill-fire { --element-color: #f06a42; }
+.skill-fire { --element-color: var(--battle-fire, #f06a42); }
 .element-water,
 .shield-water,
-.skill-water { --element-color: #3e9ed8; }
+.skill-water { --element-color: var(--battle-water, #3e9ed8); }
 .element-ice,
 .shield-ice,
-.skill-ice { --element-color: #8de8f2; }
+.skill-ice { --element-color: var(--battle-ice, #8de8f2); }
 .element-electric,
 .shield-electric,
-.skill-electric { --element-color: #f1cf3f; }
+.skill-electric { --element-color: var(--battle-electric, #f1cf3f); }
 .element-physical,
 .shield-physical,
-.skill-physical { --element-color: #a69a8c; }
+.skill-physical { --element-color: var(--battle-physical, #a69a8c); }
 .skill { border-left: 7px solid var(--element-color); }
 .shield-fire,
 .shield-water,

@@ -36,7 +36,7 @@ pnpm package:plugin
 生成：
 
 ```text
-packages\sp-plugin\release\SPPet-SP-v0.13.0.zip
+packages\sp-plugin\release\SPPet-SP-v0.14.0.zip
 ```
 
 在 Super Productivity“设置 → 插件 → 选择插件文件”中导入。最低支持 SP 18.21.2。
@@ -57,7 +57,7 @@ pnpm dev:pet
 pnpm package:pet
 ```
 
-解压 `SPPet-v0.13.0-win-x64.zip`，运行 `SPPet.exe`。桌宠默认只显示角色：
+解压 `SPPet-v0.14.0-win-x64.zip`，运行 `SPPet.exe`。桌宠默认只显示角色：
 
 - 悬停：显示 Lv、XP、状态值、streak、金币。
 - 左键：播放用户设置的互动台词。
@@ -65,6 +65,8 @@ pnpm package:pet
 - 右键：显示菜单，再进入连接、皮肤、大小和置顶设置。
 - 按住角色左键：拖动桌宠；松手后可按重力落到底部并吸附屏幕边缘，多显示器按鼠标所在屏幕约束。
 - 右键设置可启用间歇行走，并导入、预览、切换或删除独立 `manifest.json` 角色包。
+- 每个角色拥有独立的状态、好感、情绪和 AI Prompt 数据；作息与主动行为默认不抢焦点，主动气泡默认关闭。
+- 角色资源支持基础角色、服装、挂件、特效和天气五层组合，也可直接导入 `.sppetpack`。
 
 自定义皮肤格式见 `packages/desktop-pet/CUSTOM_SKINS.md`。
 
@@ -94,6 +96,7 @@ pnpm package:pet
 - 武器、护甲、饰品提供属性与元素加成；同套装备可触发额外效果。
 - 每章使用简化分叉路线：普通层在战斗与补给之间二选一，选择后另一节点失效；末层必须挑战 Boss。敌方下一行动以“意图”显示。
 - 每场战斗包含可跳过的战前/战后剧情；战后奖励只结算一次，剧情结束才推进关卡。
+- 招募券来自五日周委托、每七日签到、Boss 和长期目标；无付费入口，十次内必得稀有收藏，奖池不以纯数值装备为主。
 
 ## 插件导航
 

@@ -27,6 +27,7 @@ class AiService {
     this.memoryStore = new MemoryStore(dataDirectory);
     this.request = request;
     this.shortContext = [];
+    this.moodContext = 'Normal';
     this.sessionApiKey = process.env.SPPET_AI_API_KEY || '';
     fs.mkdirSync(dataDirectory, { recursive: true });
   }
@@ -45,10 +46,11 @@ class AiService {
   settingsFrom(value) { return { enabled: value.enabled === true, longTermMemoryEnabled: value.longTermMemoryEnabled === true, endpoint: text(value.endpoint, DEFAULT_AI_SETTINGS.endpoint, 500), model: text(value.model, '', 100), personality: text(value.personality, DEFAULT_AI_SETTINGS.personality), speakingStyle: text(value.speakingStyle, DEFAULT_AI_SETTINGS.speakingStyle), worldview: text(value.worldview, DEFAULT_AI_SETTINGS.worldview), relationship: text(value.relationship, DEFAULT_AI_SETTINGS.relationship) }; }
   updateProfile(changes) { const current = this.profile(), customFields = typeof changes.customFields === 'string' ? JSON.parse(changes.customFields || '{}') : changes.customFields; const next = { ...current, ...changes, customFields: customFields && typeof customFields === 'object' && !Array.isArray(customFields) ? customFields : {} }; const normalized = { nickname: text(next.nickname, '', 80), birthday: text(next.birthday, '', 20), petName: text(next.petName, DEFAULT_PROFILE.petName, 80), userCallPet: text(next.userCallPet, DEFAULT_PROFILE.userCallPet, 80), petCallUser: text(next.petCallUser, DEFAULT_PROFILE.petCallUser, 80), relationship: text(next.relationship, DEFAULT_PROFILE.relationship, 200), customFields: next.customFields }; writeJsonAtomic(this.profileFile, normalized); this.shortContext = []; return normalized; }
   setSessionApiKey(value) { this.sessionApiKey = text(value, '', 500); return Boolean(this.sessionApiKey); }
+  setMoodContext(value) { this.moodContext = ['Happy', 'Normal', 'Sad', 'Tired', 'Excited'].includes(value) ? value : 'Normal'; }
 
   systemPrompt() {
     const settings = this.settings(), profile = this.profile();
-    return [`你是 ${profile.petName}，${settings.worldview}`, `性格：${settings.personality}`, `说话方式：${settings.speakingStyle}`, `你称呼用户为“${profile.petCallUser}”，用户称呼你为“${profile.userCallPet}”。`, `关系：${settings.relationship}；档案关系：${profile.relationship}`, `用户昵称：${profile.nickname || '未填写'}；生日：${profile.birthday || '未填写'}`, `自定义档案：${JSON.stringify(profile.customFields)}`, '尊重隐私，不声称看到了未提供的屏幕、文件或个人数据。'].join('\n');
+    return [`你是 ${profile.petName}，${settings.worldview}`, `性格：${settings.personality}`, `说话方式：${settings.speakingStyle}`, `你称呼用户为“${profile.petCallUser}”，用户称呼你为“${profile.userCallPet}”。`, `关系：${settings.relationship}；档案关系：${profile.relationship}`, `当前情绪：${this.moodContext}。情绪只能轻微影响语气，不能责罚或贬低用户。`, `用户昵称：${profile.nickname || '未填写'}；生日：${profile.birthday || '未填写'}`, `自定义档案：${JSON.stringify(profile.customFields)}`, '尊重隐私，不声称看到了未提供的屏幕、文件或个人数据。'].join('\n');
   }
   validateEndpoint(value) { const url = new URL(value); if (url.protocol === 'https:') return url; if (url.protocol === 'http:' && ['127.0.0.1', 'localhost', '::1', '[::1]'].includes(url.hostname)) return url; throw new Error('AI 接口必须使用 HTTPS，或使用本机 localhost HTTP'); }
 

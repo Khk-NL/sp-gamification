@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { execFile } = require('node:child_process');
 
-const DEFAULT_AWARENESS_SETTINGS = { currentWindowEnabled: false, visionEnabled: false };
+const DEFAULT_AWARENESS_SETTINGS = { currentWindowEnabled: false, visionEnabled: false, clipboardEnabled: false, fileManagementEnabled: false, telemetryEnabled: false };
 const POWERSHELL_PROBE = `
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
 Add-Type @'
@@ -31,8 +31,8 @@ const defaultProbe = () => new Promise((resolve, reject) => execFile('powershell
 
 class SystemAwareness {
   constructor(dataDirectory, probe = defaultProbe) { this.settingsFile = path.join(dataDirectory, 'awareness-settings.json'); this.probe = probe; this.lastWindow = null; fs.mkdirSync(dataDirectory, { recursive: true }); }
-  settings() { const value = readJson(this.settingsFile, {}); return { currentWindowEnabled: value.currentWindowEnabled === true, visionEnabled: value.visionEnabled === true }; }
-  updateSettings(changes) { const before = this.settings(), next = { currentWindowEnabled: changes.currentWindowEnabled === undefined ? before.currentWindowEnabled : changes.currentWindowEnabled === true, visionEnabled: changes.visionEnabled === undefined ? before.visionEnabled : changes.visionEnabled === true }; writeJsonAtomic(this.settingsFile, next); if (!next.currentWindowEnabled) this.lastWindow = null; return next; }
+  settings() { const value = readJson(this.settingsFile, {}); return Object.fromEntries(Object.keys(DEFAULT_AWARENESS_SETTINGS).map((key) => [key, value[key] === true])); }
+  updateSettings(changes) { const before = this.settings(), next = Object.fromEntries(Object.keys(DEFAULT_AWARENESS_SETTINGS).map((key) => [key, changes[key] === undefined ? before[key] : changes[key] === true])); writeJsonAtomic(this.settingsFile, next); if (!next.currentWindowEnabled) this.lastWindow = null; return next; }
   snapshot() { return { settings: this.settings(), currentWindow: this.lastWindow }; }
   async readCurrentWindow() { if (!this.settings().currentWindowEnabled) throw new Error('请先明确启用当前窗口读取权限'); const value = await this.probe(); this.lastWindow = { process: String(value?.process || '').slice(0, 200), title: String(value?.title || '').slice(0, 1000), capturedAt: String(value?.capturedAt || new Date().toISOString()) }; return this.lastWindow; }
 }

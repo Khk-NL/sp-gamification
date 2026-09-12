@@ -2,7 +2,7 @@
 
 ## 当前阶段
 
-Phase 9 已完成，当前版本 `0.13.0`；下一阶段为 Phase 10（多角色与高级扩展收口）。
+Phase 10 已完成，当前版本 `0.14.0`；`FEATURE_ROADMAP.md` 的 Phase 0–10 阶段目标已收口。
 
 ## 已完成
 
@@ -23,6 +23,10 @@ Phase 9 已完成，当前版本 `0.13.0`；下一阶段为 Phase 10（多角色
 - 更新检查会展示版本与日志，用户确认后下载，并在插件内校验 ZIP 的 SHA-256；SP 官方不提供插件自安装 API，因此安装仍由用户在插件设置中选择 ZIP。
 - 长期记忆默认关闭；开启后对话摘要与本地 embedding 写入 `memories.db`，新对话检索相关记忆，历史删除会同步删除关联记忆。
 - 观察日记保存最近 30 天六类结构化事件，只有用户点击后才调用 AI；TTS 通过 disabled/local/remote Provider 抽象并使用两态口型。
+- 多角色分别保存状态、好感、情绪和 AI Prompt/记忆目录；没有 AI-to-AI 自动循环。
+- 昼夜、当日唤醒、主动气泡、整点、系统负载和随机事件均可独立配置，主动行为默认静默。
+- 角色资源支持基础、服装、挂件、特效、天气分层和安全 `.sppetpack` 导入。
+- 非付费招募券来自周委托、七日签到、Boss 与长期目标，来源去重并提供十抽保底。
 
 ## 重要文件
 
@@ -41,25 +45,30 @@ Phase 9 已完成，当前版本 `0.13.0`；下一阶段为 Phase 10（多角色
 - `packages/desktop-pet/src/memory-store.cjs`：本地 embedding、相似度检索与真实删除。
 - `packages/desktop-pet/src/observation-journal.cjs`：六类结构化事件和最近 30 天观察记录。
 - `packages/desktop-pet/src/tts-service.cjs`：可替换 TTS Provider 与会话级 API Key。
+- `packages/desktop-pet/src/character-roster.cjs`：多角色独立状态、好感与情绪。
+- `packages/desktop-pet/src/behavior-service.cjs`：昼夜和默认静默的主动行为。
+- `packages/desktop-pet/src/safe-zip.cjs`：`.sppetpack` 安全解包。
+- `ROADMAP_STATUS.md`：路线图逐项证据和明确延后边界。
 - `DEVELOP_LOG.md`：阶段审计和完成记录。
 
 ## 当前数据结构
 
-- `SPPetState.version = 6`。
+- `SPPetState.version = 7`。
 - 根状态包含 `mode`、等级/XP/金币/streak、累计统计、当天统计、任务/专注 session 去重记录和委托。
 - `today` 包含日期、任务数、当日 XP、已结算专注奖励档数。
 - `commissions` 包含任务、专注、高优先级任务、每日复盘。
 - `pet.affinity` 包含点数、阶段、当日抚摸日期与次数。
 - `pet.skillLevels`、`pet.equipmentLevels` 保存三级强化进度；`shop` 保存当天刷新次数与轮换商品。
+- `recruitment` 保存招募券、保底进度、收藏、已结算来源和当周完成委托日期。
 - 旧存档通过 `hydrateState()` 自动补全，不进行破坏性迁移。
 
 ## 已知问题
 
 - 高优先级任务暂以 SP 标签 `high`、`high priority`、`高优先级` 或 `重要` 判断；官方 Plugin API 当前暴露的任务类型没有稳定优先级字段。
 - Event Bus 已覆盖现实行为入口；战斗/商店 UI 命令仍由插件适配层调用 core，待对应模块拆分阶段继续迁移。
-- 桌宠暂不识别其他应用窗口顶部；Spine/Live2D、多层实时换装、`.sppetpack` 解压、实时 STT 和多角色同屏尚未完成。
+- 桌宠暂不识别其他应用窗口顶部；Spine/Live2D、实时 STT、OCR、联网天气和多角色同屏仍是路线图明确的未来/渐进能力。
 - pnpm 当前运行时版本与已有 `node_modules` 元数据不一致，会尝试重装；本阶段使用仓库现有 `node_modules/.bin` 工具验证，没有重装依赖。
 
 ## 下一阶段
 
-Phase 10 完成多角色独立档案、昼夜/情绪/主动行为和资源包高级扩展，同时避免 AI-to-AI 无限对话。
+进入常规迭代：优先做真实 SP 安装验收、桌宠多显示器手工回归和服务器部署；不在没有新需求时扩张玩法范围。

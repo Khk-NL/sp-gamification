@@ -1,5 +1,12 @@
 {
   "version": 1,
+  "battleVisuals": {
+    "physical": {"color":"#a69a8c","hitEffect":"physical","shieldEffect":"physical"},
+    "fire": {"color":"#f06a42","hitEffect":"fire","shieldEffect":"fire"},
+    "water": {"color":"#3e9ed8","hitEffect":"water","shieldEffect":"water"},
+    "ice": {"color":"#8de8f2","hitEffect":"ice","shieldEffect":"ice"},
+    "electric": {"color":"#f1cf3f","hitEffect":"electric","shieldEffect":"electric"}
+  },
   "skills": [
     {"id":"strike","name":"战术打击","nameEn":"Tactical Strike","description":"造成攻击 ×1 的物理伤害。","cost":1,"type":"physical","power":1},
     {"id":"brace","name":"防御姿态","nameEn":"Brace","description":"攻击 ×0.5，获得 10 点物理护盾。","cost":1,"type":"physical","power":0.5,"block":10},

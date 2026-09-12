@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
+const archiver = require('archiver');
 const { AssetManager, REQUIRED_STATES } = require('../src/asset-manager.cjs');
 
 const makeManifest = (id, extra = {}) => ({ manifestVersion: 1, id, name: id, type: 'emoji', version: '1.0.0', states: { idle: '🐱' }, ...extra });
@@ -38,8 +39,16 @@ test('loads frame animations and rejects unsafe frame paths', (context) => {
   fs.mkdirSync(path.join(character, 'animations'), { recursive: true });
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
   fs.writeFileSync(path.join(character, 'idle.png'), png); fs.writeFileSync(path.join(character, 'animations', '1.png'), png); fs.writeFileSync(path.join(character, 'animations', '2.png'), png);
-  fs.writeFileSync(path.join(character, 'manifest.json'), JSON.stringify({ manifestVersion: 1, id: 'pixel', name: 'Pixel', type: 'sprite', states: { idle: 'idle.png' }, animations: { walk: { type: 'frames', frames: ['animations/1.png', 'animations/2.png'], fps: 8, loop: true }, battle: { type: 'frames', frames: ['../outside.png'], fps: 8 } } }));
+  fs.writeFileSync(path.join(character, 'manifest.json'), JSON.stringify({ manifestVersion: 1, id: 'pixel', name: 'Pixel', type: 'sprite', states: { idle: 'idle.png' }, animations: { walk: { type: 'frames', frames: ['animations/1.png', 'animations/2.png'], fps: 8, loop: true }, battle: { type: 'frames', frames: ['../outside.png'], fps: 8 } }, outfits: [{ id: 'coat', name: '外套', resource: 'idle.png' }] }));
   const loaded = new AssetManager(builtIn, custom).load('pixel');
   assert.equal(loaded.animations.walk.frames.length, 2);
   assert.equal(loaded.animations.battle, undefined);
+  assert.equal(loaded.layers.outfits[0].id, 'coat');
+});
+
+test('imports a validated .sppetpack ZIP into the separate character directory', async (context) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sppet-pack-')); context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const builtIn = path.join(root, 'built-in'), custom = path.join(root, 'custom'), pack = path.join(root, 'pet.sppetpack'); fs.mkdirSync(custom, { recursive: true });
+  await new Promise((resolve, reject) => { const output = fs.createWriteStream(pack), archive = archiver('zip'); output.on('close', resolve); archive.on('error', reject); archive.pipe(output); archive.append(JSON.stringify(makeManifest('packed_pet')), { name: 'manifest.json' }); archive.finalize(); });
+  const manager = new AssetManager(builtIn, custom), loaded = manager.importPack(pack); assert.equal(loaded.manifest.id, 'packed_pet'); assert.equal(fs.existsSync(path.join(custom, 'packed_pet', 'manifest.json')), true);
 });

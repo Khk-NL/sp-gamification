@@ -1,7 +1,7 @@
 {
-  "version": "0.13.0",
-  "downloadUrl": "https://sppet.scsldr.cn/downloads/SPPet-SP-v0.13.0.zip",
-  "changelog": "加入默认关闭的本地长期记忆、主动生成的观察日记，以及可切换 local / remote / disabled 的 TTS Provider。",
-  "sha256": "6724885d314c568911a2676cf80b26f12d9eaf78e116a9a19ae68aecac70fcc1",
+  "version": "0.14.0",
+  "downloadUrl": "https://sppet.scsldr.cn/downloads/SPPet-SP-v0.14.0.zip",
+  "changelog": "加入多角色独立档案、昼夜与情绪行为、分层角色资源、.sppetpack 导入，以及带保底的非付费招募系统。",
+  "sha256": "fa804138a3997eff1fa5bd0e6966acb0f95b0820a8411a4a8821a2c34097d1cd",
   "minCompatibleVersion": "0.12.0"
 }

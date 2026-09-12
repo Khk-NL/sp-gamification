@@ -1,5 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const { extractSafeZip } = require('./safe-zip.cjs');
 
 const IMAGE_MIME = { '.png': 'image/png', '.webp': 'image/webp', '.gif': 'image/gif', '.apng': 'image/apng' };
 const AUDIO_MIME = { '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg', '.wav': 'audio/wav' };
@@ -18,7 +19,7 @@ class AssetManager {
       if (!REQUIRED_STATES.includes(state) || animation?.type !== 'frames' || !Array.isArray(animation.frames) || !animation.frames.length || animation.frames.some((frame) => typeof frame !== 'string')) throw new Error(`角色动画 ${state} 配置无效`);
       animations[state] = { type: 'frames', frames: animation.frames, fps: Math.min(30, Math.max(1, Number(animation.fps) || 8)), loop: animation.loop !== false };
     }
-    return { ...value, states: Object.fromEntries(REQUIRED_STATES.map((state) => [state, typeof value.states[state] === 'string' ? value.states[state] : value.states.idle])), animations, outfits: Array.isArray(value.outfits) ? value.outfits : [], accessories: Array.isArray(value.accessories) ? value.accessories : [], effects: value.effects && typeof value.effects === 'object' ? value.effects : {}, sounds: value.sounds && typeof value.sounds === 'object' ? value.sounds : {} };
+    return { ...value, states: Object.fromEntries(REQUIRED_STATES.map((state) => [state, typeof value.states[state] === 'string' ? value.states[state] : value.states.idle])), animations, outfits: Array.isArray(value.outfits) ? value.outfits : [], accessories: Array.isArray(value.accessories) ? value.accessories : [], effects: Array.isArray(value.effects) ? value.effects : [], weather: Array.isArray(value.weather) ? value.weather : [], sounds: value.sounds && typeof value.sounds === 'object' ? value.sounds : {} };
   }
 
   directories() { const scan = (root, custom) => fs.existsSync(root) ? fs.readdirSync(root, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => ({ directory: path.join(root, entry.name), custom })) : []; return [...scan(this.builtInRoot, false), ...scan(this.customRoot, true)]; }
@@ -39,6 +40,7 @@ class AssetManager {
     if (!mime) throw new Error('角色音效仅支持 MP3、Ogg 或 WAV');
     return `data:${mime};base64,${fs.readFileSync(file).toString('base64')}`;
   }
+  layerGroup(directory, entries) { return entries.flatMap((entry) => { if (!entry || typeof entry.id !== 'string' || typeof entry.resource !== 'string') return []; try { return [{ id: entry.id, name: String(entry.name || entry.id), resource: this.resource(directory, entry.resource, 'sprite') }]; } catch { return []; } }); }
   load(id) {
     const key = id || 'default_pet';
     if (this.cache.has(key)) return this.cache.get(key);
@@ -52,7 +54,7 @@ class AssetManager {
       try { animations[state] = { ...animation, frames: animation.frames.map((value) => this.resource(found.directory, value, 'sprite')) }; } catch { /* A broken optional animation falls back to the static state. */ }
     }
     const sounds = Object.fromEntries(Object.entries(manifest.sounds).flatMap(([state, value]) => { try { return typeof value === 'string' ? [[state, this.sound(found.directory, value)]] : []; } catch { return []; } }));
-    const result = { manifest, states, animations, sounds, layers: { outfits: manifest.outfits, accessories: manifest.accessories, effects: manifest.effects }, custom: found.custom };
+    const result = { manifest, states, animations, sounds, layers: { outfits: this.layerGroup(found.directory, manifest.outfits), accessories: this.layerGroup(found.directory, manifest.accessories), effects: this.layerGroup(found.directory, manifest.effects), weather: this.layerGroup(found.directory, manifest.weather) }, custom: found.custom };
     this.cache.set(key, result);
     return result;
   }
@@ -67,6 +69,7 @@ class AssetManager {
     fs.cpSync(source, target, { recursive: true, errorOnExist: true }); this.cache.clear();
     return this.load(manifest.id);
   }
+  importPack(archive) { if (path.extname(archive).toLowerCase() !== '.sppetpack') throw new Error('请选择 .sppetpack 资源包'); const temporary = fs.mkdtempSync(path.join(this.customRoot, '.import-')); try { extractSafeZip(archive, temporary); return this.importFolder(temporary); } finally { fs.rmSync(temporary, { recursive: true, force: true }); } }
   remove(id) { const found = this.find(id); if (!found?.custom) throw new Error('只能删除用户导入的角色'); const root = `${path.resolve(this.customRoot)}${path.sep}`, target = path.resolve(found.directory); if (!target.startsWith(root)) throw new Error('角色目录不安全'); fs.rmSync(target, { recursive: true, force: false }); this.cache.clear(); }
   clearCache() { this.cache.clear(); }
 }

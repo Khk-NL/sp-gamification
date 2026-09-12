@@ -52,7 +52,7 @@ test('local registration, login session and admin content publishing work', asyn
   const excessive = await fetch(`${base}/api/v1/leaderboard/submit`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${device.token}` }, body: JSON.stringify({ ...leaderboardBody, nonce: 'nonce-test-0002', focusMinutes: 5000 }) }); assert.equal(excessive.status, 409);
   const board = await (await fetch(`${base}/api/v1/leaderboard?period=daily`)).json(); assert.equal(board.entries[0].displayName, '测试用户'); assert.equal(board.entries[0].focusMinutes, 120); assert.equal(Object.hasOwn(board.entries[0], 'taskName'), false);
   const catalog = await fetch(`${base}/api/v1/store/catalog`); assert.equal(Array.isArray((await catalog.json()).skills), true);
-  const release = await fetch(`${base}/api/v1/releases/manifest`); const manifest = await release.json(); assert.equal(manifest.version, '0.13.0'); assert.match(manifest.sha256, /^[a-f0-9]{64}$/);
+  const release = await fetch(`${base}/api/v1/releases/manifest`); const manifest = await release.json(); assert.equal(manifest.version, '0.14.0'); assert.match(manifest.sha256, /^[a-f0-9]{64}$/);
   const events = await (await fetch(`${base}/api/v1/events`)).json(); assert.equal(Array.isArray(events.events), true);
   const legacySubmit = await fetch(`${base}/api/leaderboard/submit`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }); assert.equal(legacySubmit.status, 410);
 });

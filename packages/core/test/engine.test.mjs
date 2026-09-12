@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_CONTENT, EventBus, advanceBattleStory, checkIn, claimMapReward, conditionRewardMultiplier, createInitialState, endTurn, getComputedStats, normalizeContent, onDailyReviewCompleted, onDayChecked, onFocusSessionCompleted, onFocusTimeAdded, onPetConnectionChecked, onPetTouched, onTaskCompleted, purchaseItem, equipItem, refreshShop, seedFocusTime, setEquippedSkills, setPlayMode, startBattle, startBattleAt, upgradeEquipment, upgradeSkill, useItem, useSkill } from '../dist/index.js';
+import { DEFAULT_CONTENT, EventBus, advanceBattleStory, checkIn, claimMapReward, conditionRewardMultiplier, createInitialState, endTurn, getComputedStats, normalizeContent, onDailyReviewCompleted, onDayChecked, onFocusSessionCompleted, onFocusTimeAdded, onGoalProgressUpdated, onPetConnectionChecked, onPetTouched, onTaskCompleted, purchaseItem, equipItem, recruit, refreshShop, seedFocusTime, setEquippedSkills, setPlayMode, startBattle, startBattleAt, upgradeEquipment, upgradeSkill, useItem, useSkill } from '../dist/index.js';
 
 test('任务不直接发金币经验，完成委托后发经验且任务不重复结算', () => {
   let state = createInitialState('2026-09-10T08:00:00+08:00');
@@ -73,6 +73,12 @@ test('外部内容的倍率和百分比会归入简化档位', () => {
   const normalized = normalizeContent(content); assert.equal(normalized.skills[0].power, 1); assert.equal(normalized.skills[0].weaken, 10); assert.equal(normalized.items[0].effects.xpBonus, 20); assert.equal(normalized.items[0].effects.damageBonus.fire, 50);
 });
 
+test('战斗属性颜色和特效来自可校验的内容配置', () => {
+  const content = structuredClone(DEFAULT_CONTENT); content.battleVisuals.fire = { color: '#123abc', hitEffect: 'custom-flare', shieldEffect: '../unsafe' };
+  const normalized = normalizeContent(content);
+  assert.deepEqual(normalized.battleVisuals.fire, { color: '#123abc', hitEffect: 'custom-flare', shieldEffect: 'fire' });
+});
+
 test('装备属性与先遣套装效果会进入最终战斗属性', () => {
   let state = createInitialState(); state.coins = 200; state = purchaseItem(state, 'pioneer-blade').state; state = purchaseItem(state, 'pioneer-coat').state; state = equipItem(state, 'pioneer-blade').state; state = equipItem(state, 'pioneer-coat').state; const stats = getComputedStats(state); assert.equal(stats.attack, 19); assert.equal(stats.defense, 10); assert.equal(stats.maxHp, 115);
 });
@@ -113,4 +119,24 @@ test('技能与装备最多强化三级并持续消耗金币', () => {
 test('商店刷新、药品与消耗品形成可重复金币消费', () => {
   let state = createInitialState(); state.coins = 100; const refreshed = refreshShop(state); assert.equal(refreshed.state.coins, 90); assert.equal(refreshed.state.shop.rotation.length, 8);
   state = refreshed.state; state.pet.hp = 20; state = purchaseItem(state, 'repair-spray').state; const used = useItem(state, 'repair-spray'); assert.equal(used.state.pet.hp, 60); assert.equal(used.state.pet.inventory['repair-spray'], undefined);
+});
+
+test('招募券来源去重，十抽保底且奖池不含纯数值装备', () => {
+  let state = createInitialState('2026-09-01T08:00:00');
+  state = onGoalProgressUpdated(state, 'graduate', 100, '2026-09-01T09:00:00').state;
+  state = onGoalProgressUpdated(state, 'graduate', 100, '2026-09-01T10:00:00').state;
+  assert.equal(state.recruitment.tickets, 1);
+  state.recruitment.pity = 9;
+  const result = recruit(state, 'guaranteed', '2026-09-01T11:00:00');
+  assert.equal(result.state.recruitment.tickets, 0);
+  assert.equal(result.events[0].payload.rarity, 'rare');
+  assert.equal(['weapon', 'armor', 'accessory'].includes(String(result.events[0].payload.type)), false);
+  assert.equal(result.state.recruitment.pity, 0);
+});
+
+test('连续签到每七天只发一张招募券', () => {
+  let state = createInitialState('2026-09-01T08:00:00');
+  for (let day = 1; day <= 7; day += 1) state = checkIn(state, `2026-09-${String(day).padStart(2, '0')}T09:00:00`).state;
+  assert.equal(state.recruitment.tickets, 1);
+  assert.equal(state.recruitment.ticketSources.length, 1);
 });
