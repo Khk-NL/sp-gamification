@@ -13,6 +13,7 @@ const { ObservationJournal } = require('./observation-journal.cjs');
 const { TTSService } = require('./tts-service.cjs');
 const { CharacterRoster } = require('./character-roster.cjs');
 const { BehaviorService } = require('./behavior-service.cjs');
+const { calculateDragPosition } = require('./drag-position.cjs');
 
 const appData = process.env.APPDATA || os.homedir();
 const DATA_DIRECTORY = process.env.SPPET_DATA_DIR || process.env.SP_GAMIFICATION_DATA_DIR || path.join(appData, 'SPPet');
@@ -81,7 +82,7 @@ const attachSocket = (socket) => {
 const startBridgeServer = () => { bridgeServer = http.createServer((request, response) => { if (request.url === '/health') { response.writeHead(200, { 'content-type': 'application/json' }); response.end(JSON.stringify({ ok: true, connected: bridgeConnected })); return; } response.writeHead(404); response.end(); }); bridgeServer.on('upgrade', (request, socket) => { const key = request.headers['sec-websocket-key'], remote = request.socket.remoteAddress; if (!key || (remote && !['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(remote))) { socket.destroy(); return; } const accept = crypto.createHash('sha1').update(`${key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`).digest('base64'); socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`); attachSocket(socket); }); bridgeServer.on('error', (error) => { if (error.code === 'EADDRINUSE') dialog.showErrorBox('SPPet 连接端口被占用', `本地端口 ${BRIDGE_PORT} 已被占用，请退出旧桌宠。`); }); bridgeServer.listen(BRIDGE_PORT, '127.0.0.1'); };
 
 const createTrayIcon = () => { const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><path d="M4 5h24v20l-6 6H4z" fill="#142431"/><path d="M8 9h16v12H8z" fill="#f7fbfd"/><path d="M19 9h5v5z" fill="#77e4ff"/></svg>`; return nativeImage.createFromDataURL(`data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`); };
-const showWindow = () => { if (!windowRef) return; windowRef.show(); windowRef.focus(); publishSnapshot(); };
+const showWindow = () => { if (!windowRef) return; windowRef.show(); windowRef.moveTop(); windowRef.focus(); publishSnapshot(); };
 const resizeForSettings = (open) => { if (!windowRef) return; const bounds = windowRef.getBounds(); const width = open ? 340 : 250, height = open ? 460 : 300; windowRef.setBounds({ x: bounds.x, y: bounds.y + bounds.height - height, width, height }, true); };
 const setWindowInteractive = (interactive) => { if (!windowRef || windowRef.isDestroyed()) return; if (interactive) windowRef.setIgnoreMouseEvents(false); else windowRef.setIgnoreMouseEvents(true, { forward: true }); };
 const sendMotionState = (state) => { if (windowRef && !windowRef.isDestroyed()) windowRef.webContents.send('pet-motion-state', state); };
@@ -98,18 +99,19 @@ const createTray = () => { tray = new Tray(createTrayIcon()); tray.setToolTip('S
 
 if (!app.requestSingleInstanceLock()) app.quit(); else { app.on('second-instance', showWindow); app.whenReady().then(() => { fs.mkdirSync(DATA_DIRECTORY, { recursive: true }); migrateLegacyData(); const activeId = readJson(PET_SETTINGS_FILE, {}).characterId || 'default_pet'; aiService = aiForCharacter(activeId); characterRoster.select(activeId, readSnapshot().state); createWindow(); createTray(); startBridgeServer(); watcher = fs.watch(DATA_DIRECTORY, (_event, filename) => { if (['state.json','events.json','pet-settings.json','pet-profile.json'].includes(String(filename))) scheduleRead(); }); characterWatcher = fs.watch(CHARACTERS_DIRECTORY, { recursive: true }, () => { assetManager.clearCache(); scheduleRead(); }); setInterval(maybeWalk, 30_000); focusTickTimer = setInterval(tickFocusTimer, 1000); focusWindowTimer = setInterval(() => { void monitorFocusWindow(); }, 10_000); productivityTimer = setInterval(tickProductivity, 60_000); behaviorTimer = setInterval(tickBehavior, 60_000); tickProductivity(); tickBehavior(); }); }
 ipcMain.on('pet-hide', () => windowRef?.hide()); ipcMain.on('pet-close', () => app.quit()); ipcMain.on('pet-settings-open', (_event, open) => { settingsOpen = Boolean(open); resizeForSettings(settingsOpen); });
+ipcMain.on('pet-focus-window', showWindow);
 const fromPetWindow = (event) => windowRef && !windowRef.isDestroyed() && event.sender === windowRef.webContents;
 ipcMain.on('pet-set-interactive', (event, interactive) => { if (fromPetWindow(event)) setWindowInteractive(Boolean(interactive)); });
 ipcMain.on('pet-drag-start', (event) => {
   if (!fromPetWindow(event)) return;
   clearInterval(fallTimer); clearInterval(walkTimer); sendMotionState('drag');
-  const [windowX, windowY] = windowRef.getPosition(); const pointer = screen.getCursorScreenPoint();
-  dragSession = { windowX, windowY, pointerX: pointer.x, pointerY: pointer.y, lastPointerX: pointer.x, lastPointerY: pointer.y };
+  const bounds = windowRef.getBounds(); const pointer = screen.getCursorScreenPoint();
+  dragSession = { windowX: bounds.x, windowY: bounds.y, windowWidth: bounds.width, windowHeight: bounds.height, pointerX: pointer.x, pointerY: pointer.y, lastPointerX: pointer.x, lastPointerY: pointer.y };
 });
 ipcMain.on('pet-drag-move', (event) => {
   if (!fromPetWindow(event) || !dragSession) return;
   const pointer = screen.getCursorScreenPoint(); if (pointer.x === dragSession.lastPointerX && pointer.y === dragSession.lastPointerY) return; dragSession.lastPointerX = pointer.x; dragSession.lastPointerY = pointer.y;
-  const bounds = windowRef.getBounds(); const workArea = screen.getDisplayNearestPoint(pointer).workArea; const x = Math.min(workArea.x + workArea.width - bounds.width, Math.max(workArea.x, dragSession.windowX + pointer.x - dragSession.pointerX)); const y = Math.min(workArea.y + workArea.height - bounds.height, Math.max(workArea.y, dragSession.windowY + pointer.y - dragSession.pointerY)); const [currentX, currentY] = windowRef.getPosition(); if (x !== currentX || y !== currentY) windowRef.setPosition(x, y, false);
+  const workArea = screen.getDisplayNearestPoint(pointer).workArea; const next = calculateDragPosition(dragSession, pointer, workArea); const [currentX, currentY] = windowRef.getPosition(); if (next.x !== currentX || next.y !== currentY) windowRef.setPosition(next.x, next.y, false);
 });
 ipcMain.on('pet-drag-end', (event) => { if (fromPetWindow(event)) { dragSession = null; startFall(); } });
 ipcMain.on('pet-touched', (event) => { if (fromPetWindow(event)) { const touchEvent = { type: 'PET_TOUCHED', occurredAt: new Date().toISOString(), payload: {} }; sendBridgeEvent('PET_TOUCHED'); observationJournal.record(touchEvent); characterRoster.recordEvents([touchEvent]); } });

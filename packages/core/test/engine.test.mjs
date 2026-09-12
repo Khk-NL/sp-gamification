@@ -1,142 +1,197 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_CONTENT, EventBus, advanceBattleStory, checkIn, claimMapReward, conditionRewardMultiplier, createInitialState, endTurn, getComputedStats, normalizeContent, onDailyReviewCompleted, onDayChecked, onFocusSessionCompleted, onFocusTimeAdded, onGoalProgressUpdated, onPetConnectionChecked, onPetTouched, onTaskCompleted, purchaseItem, equipItem, recruit, refreshShop, seedFocusTime, setEquippedSkills, setPlayMode, startBattle, startBattleAt, upgradeEquipment, upgradeSkill, useItem, useSkill } from '../dist/index.js';
+import {
+  BATTLE_CONDITION_COST, BATTLE_RESOURCE_PER_TURN, DEFAULT_CONTENT, EventBus,
+  advanceBattleStory, checkIn, claimMapReward,
+  conditionRewardMultiplier, createInitialState, elementMultiplier, equipItem,
+  leaveMapShop,
+  normalizeContent, onDayChecked, onFocusSessionCompleted, onFocusTimeAdded,
+  onGoalProgressUpdated, onPetConnectionChecked, onPetTouched, onTaskCompleted, openMapShop,
+  purchaseItem, purchaseMapItem, recruit, refreshShop, scaleEnemy, seedFocusTime,
+  setEquippedSkills, setPlayMode, startBattle, startBattleAt, useItem,
+} from '../dist/index.js';
 
-test('任务不直接发金币经验，完成委托后发经验且任务不重复结算', () => {
-  let state = createInitialState('2026-09-10T08:00:00+08:00');
-  state = onTaskCompleted(state, { taskId: 'a' }).state;
-  const duplicate = onTaskCompleted(state, { taskId: 'a' });
-  state = onTaskCompleted(state, { taskId: 'b' }).state;
-  const completed = onTaskCompleted(state, { taskId: 'c' });
-  assert.equal(duplicate.events.length, 0); assert.equal(completed.state.totalTasksCompleted, 3); assert.equal(completed.state.coins, 5); assert.equal(completed.state.xp, 30); assert.equal(completed.events.some((entry) => entry.type === 'COMMISSION_COMPLETED'), true);
+test('任务去重并恢复状态，但不会触发或推进战斗', () => {
+  let state = startBattle(createInitialState(), DEFAULT_CONTENT).state;
+  state.pet.condition = 50;
+  const battleBefore = structuredClone(state.adventure.activeBattle);
+  const result = onTaskCompleted(state, { taskId: 'a' }, DEFAULT_CONTENT);
+  assert.equal(result.state.pet.condition, 52);
+  assert.deepEqual(result.state.adventure.activeBattle, battleBefore);
+  assert.equal(result.events.some((entry) => entry.type === 'SKILL_USED'), false);
+  const duplicate = onTaskCompleted(result.state, { taskId: 'a' }, DEFAULT_CONTENT);
+  assert.equal(duplicate.events.length, 0);
+  assert.equal(duplicate.state.pet.condition, 52);
 });
 
-test('连续自然日增长 streak，中断后归零', () => {
-  let state = createInitialState('2026-09-08T08:00:00'); state = onTaskCompleted(state, { taskId: 'a', occurredAt: '2026-09-08T09:00:00' }).state; state = onTaskCompleted(state, { taskId: 'b', occurredAt: '2026-09-09T09:00:00' }).state; assert.equal(state.streak, 2); state = onDayChecked(state, '2026-09-11T08:00:00').state; assert.equal(state.streak, 0);
+test('专注奖励恢复状态且不重复结算，不会推进战斗', () => {
+  let state = startBattle(createInitialState(), DEFAULT_CONTENT).state;
+  state.pet.condition = 40;
+  state = seedFocusTime(state, 'task-1', 0).state;
+  const battleBefore = structuredClone(state.adventure.activeBattle);
+  state = onFocusTimeAdded(state, { sourceId: 'task-1', sourceTotalMinutes: 24 }, DEFAULT_CONTENT).state;
+  assert.equal(state.pet.condition, 40);
+  const rewarded = onFocusTimeAdded(state, { sourceId: 'task-1', sourceTotalMinutes: 25 }, DEFAULT_CONTENT);
+  assert.equal(rewarded.state.pet.condition, 42);
+  assert.deepEqual(rewarded.state.adventure.activeBattle, battleBefore);
+  const duplicate = onFocusTimeAdded(rewarded.state, { sourceId: 'task-1', sourceTotalMinutes: 25 }, DEFAULT_CONTENT);
+  assert.equal(duplicate.state.pet.condition, 42);
 });
 
-test('漏登每天扣 10 状态，状态耗尽后扣 HP，且同日不重复', () => {
-  const state = createInitialState('2026-09-01T08:00:00'); state.pet.condition = 15; state.pet.hp = 100;
-  const result = onDayChecked(state, '2026-09-05T08:00:00');
-  assert.equal(result.state.pet.condition, 0); assert.equal(result.state.pet.hp, 85); assert.equal(result.state.lastLoginDate, '2026-09-05');
-  assert.equal(result.events[0].payload.missedDays, 3); assert.equal(result.events[0].payload.hpLost, 15);
-  const duplicate = onDayChecked(result.state, '2026-09-05T20:00:00'); assert.equal(duplicate.state.pet.hp, 85); assert.equal(duplicate.events.length, 0);
+test('确认战前剧情后，自动战斗使用每回合 5 RP 并一次结算到底', () => {
+  const content = structuredClone(DEFAULT_CONTENT);
+  content.chapters[0].enemies[0].hpMultiplier = 3;
+  const started = startBattle(createInitialState(), content);
+  assert.equal(started.state.pet.condition, 100 - BATTLE_CONDITION_COST);
+  assert.equal(started.state.adventure.activeBattle.resource, BATTLE_RESOURCE_PER_TURN);
+  const result = advanceBattleStory(started.state, true, content);
+  assert.equal(result.state.adventure.activeBattle.phase, 'story_after');
+  assert.equal(result.events.some((entry) => entry.type === 'SKILL_USED'), true);
+  assert.equal(result.events.some((entry) => entry.type === 'ENEMY_ACTION'), true);
+  assert.equal(result.events.some((entry) => entry.type === 'BATTLE_WON'), true);
+  assert.ok(result.events.filter((entry) => entry.type === 'SKILL_USED').every((entry) => entry.payload.cost <= BATTLE_RESOURCE_PER_TURN));
 });
 
-test('专注按观察差值推进委托且不重复', () => {
-  let state = seedFocusTime(createInitialState(), 'task-1', 60).state; state = onFocusTimeAdded(state, { sourceId: 'task-1', sourceTotalMinutes: 119 }).state; assert.equal(state.xp, 0); const reward = onFocusTimeAdded(state, { sourceId: 'task-1', sourceTotalMinutes: 120 }); assert.equal(reward.state.xp, 30); const duplicate = onFocusTimeAdded(reward.state, { sourceId: 'task-1', sourceTotalMinutes: 120 }); assert.equal(duplicate.state.totalFocusMinutes, 60); assert.equal(duplicate.events.length, 0);
+test('自动战斗从最多四个已装备技能中选择预计伤害最高者', () => {
+  const content = structuredClone(DEFAULT_CONTENT);
+  content.chapters[0].enemies[0].defenseElement = 'ice';
+  let state = createInitialState();
+  state.pet.learnedSkills = content.skills.map((skill) => skill.id);
+  state = setEquippedSkills(state, ['strike', 'tide-cut', 'frost-ward', 'ember-shot'], content).state;
+  state = startBattle(state, content).state;
+  const result = advanceBattleStory(state, true, content);
+  assert.equal(result.events.find((entry) => entry.type === 'SKILL_USED').payload.skill, '灼流弹');
+  assert.equal(result.events.find((entry) => entry.type === 'SKILL_USED').payload.multiplier, 1.5);
 });
 
-test('桌宠专注计时奖励去重且每日最多结算四次', () => {
-  let state = createInitialState('2026-09-12T08:00:00'); state.pet.condition = 50;
-  const first = onFocusSessionCompleted(state, { sessionId: 'focus-1', minutes: 25, occurredAt: '2026-09-12T09:00:00' });
-  assert.equal(first.state.xp, 10); assert.equal(first.state.coins, 4); assert.equal(first.state.pet.condition, 57); assert.equal(first.state.totalFocusMinutes, 25);
-  const duplicate = onFocusSessionCompleted(first.state, { sessionId: 'focus-1', minutes: 25, occurredAt: '2026-09-12T09:30:00' }); assert.equal(duplicate.events.length, 0); assert.equal(duplicate.state.totalFocusMinutes, 25);
-  state = first.state; for (let index = 2; index <= 5; index += 1) state = onFocusSessionCompleted(state, { sessionId: `focus-${index}`, minutes: 5, occurredAt: '2026-09-12T10:00:00' }).state;
-  assert.equal(state.today.focusTimerRewards, 4); assert.equal(state.xp, 40); assert.equal(state.processedFocusSessionIds.length, 5);
+test('元素克制倍率固定为 1.5、0.75、1，物理恒为 1', () => {
+  assert.equal(elementMultiplier('fire', 'ice'), 1.5);
+  assert.equal(elementMultiplier('fire', 'water'), .75);
+  assert.equal(elementMultiplier('fire', 'electric'), 1);
+  assert.equal(elementMultiplier('physical', 'ice'), 1);
 });
 
-test('签到奖励随连续签到增加且同日只领一次', () => {
-  let state = createInitialState('2026-09-10T08:00:00'); const first = checkIn(state, '2026-09-10T09:00:00'); const duplicate = checkIn(first.state, '2026-09-10T10:00:00'); const second = checkIn(first.state, '2026-09-11T09:00:00'); assert.equal(first.state.coins, 7); assert.equal(duplicate.events.length, 0); assert.equal(second.state.coins, 16); assert.equal(second.state.checkIn.streak, 2);
+test('技能配置最多保留四个已学习技能', () => {
+  const content = structuredClone(DEFAULT_CONTENT);
+  const state = createInitialState();
+  state.pet.learnedSkills = content.skills.map((skill) => skill.id);
+  const result = setEquippedSkills(state, content.skills.map((skill) => skill.id), content);
+  assert.equal(result.state.pet.equippedSkills.length, 4);
+  assert.deepEqual(result.state.pet.equippedSkills, content.skills.slice(0, 4).map((skill) => skill.id));
 });
 
-test('战斗包含可跳过的战前战后剧情且奖励只结算一次', () => {
-  const content = structuredClone(DEFAULT_CONTENT); content.chapters = [{ ...content.chapters[0], enemies: [{ ...content.chapters[0].enemies[0], maxHp: 1, xp: 20, coins: 10, storyBefore: ['前'], storyAfter: ['后'] }] }];
-  let initial = createInitialState(); initial.pet.condition = 50; let state = startBattle(initial, content).state; assert.equal(state.adventure.activeBattle.phase, 'story_before'); state = advanceBattleStory(state, true, content).state; assert.equal(state.adventure.activeBattle.phase, 'combat'); const won = useSkill(state, 'strike', content); assert.equal(won.state.adventure.activeBattle.phase, 'story_after'); assert.equal(won.state.coins, 10); const duplicate = useSkill(won.state, 'strike', content); assert.equal(duplicate.state.coins, 10); const finished = advanceBattleStory(won.state, true, content); assert.equal(finished.state.adventure.activeBattle, null); assert.equal(finished.state.adventure.chapterIndex, 0);
+test('武器只应用一个 20% 战斗效果，饰品只应用一个 10% 成长效果', () => {
+  const content = structuredClone(DEFAULT_CONTENT);
+  content.chapters[0].enemies[0] = { ...content.chapters[0].enemies[0], defenseElement: 'ice', hpMultiplier: .3, defenseMultiplier: .5 };
+  let state = createInitialState();
+  state.pet.inventory['ember-lance'] = 1;
+  state = equipItem(state, 'ember-lance', content).state;
+  state.pet.learnedSkills.push('ember-shot');
+  state.pet.equippedSkills = ['ember-shot'];
+  state = startBattle(state, content).state;
+  const attack = advanceBattleStory(state, true, content);
+  const skillEvent = attack.events.find((entry) => entry.type === 'SKILL_USED');
+  assert.equal(skillEvent.payload.weaponMultiplier, 1.2);
+
+  state = createInitialState();
+  state.pet.inventory['study-charm'] = 1;
+  state = equipItem(state, 'study-charm', content).state;
+  state.pet.equippedSkills = ['ember-shot'];
+  state = startBattle(state, content).state;
+  state.adventure.activeBattle.enemyHp = 1;
+  const expectedXp = Math.round(state.adventure.activeBattle.enemyXp * 1.1 * 1.2);
+  const victory = advanceBattleStory(state, true, content);
+  const won = victory.events.find((entry) => entry.type === 'BATTLE_WON');
+  assert.equal(won.payload.xp, expectedXp);
 });
 
-test('单回合可以连续使用技能，结束回合后敌人才行动且资源回到 5', () => {
-  let state = startBattle(createInitialState(), DEFAULT_CONTENT).state; state = advanceBattleStory(state, true, DEFAULT_CONTENT).state; const first = useSkill(state, 'strike', DEFAULT_CONTENT); const second = useSkill(first.state, 'strike', DEFAULT_CONTENT); assert.equal(second.state.adventure.activeBattle.turn, 1); assert.equal(second.state.adventure.activeBattle.resource, 3); assert.equal(second.state.pet.hp, 100); const turn = endTurn(second.state, DEFAULT_CONTENT); assert.equal(turn.state.adventure.activeBattle.turn, 2); assert.equal(turn.state.adventure.activeBattle.maxResource, 5); assert.equal(turn.state.adventure.activeBattle.resource, 5); assert.ok(turn.state.pet.hp < 100);
+test('怪物数值按章节、节点与 Boss 公式自动增长', () => {
+  const selectStats = ({ maxHp, attack, defense, xp, coins }) => ({ maxHp, attack, defense, xp, coins });
+  assert.deepEqual(selectStats(scaleEnemy(DEFAULT_CONTENT, 0, 0)), { maxHp: 38, attack: 7, defense: 1, xp: 16, coins: 7 });
+  assert.deepEqual(selectStats(scaleEnemy(DEFAULT_CONTENT, 0, 2)), { maxHp: 132, attack: 14, defense: 3, xp: 56, coins: 28 });
 });
 
-test('小地图每层只能选择一条路线且最终层必须打 Boss', () => {
+test('战斗保留可跳过的战前、战后剧情，胜利奖励仅结算一次', () => {
+  let state = startBattle(createInitialState(), DEFAULT_CONTENT).state;
+  assert.equal(state.adventure.activeBattle.phase, 'story_before');
+  state.adventure.activeBattle.enemyHp = 1;
+  const won = advanceBattleStory(state, true, DEFAULT_CONTENT);
+  assert.equal(won.state.adventure.activeBattle.phase, 'story_after');
+  const coins = won.state.coins;
+  const noSecondReward = onTaskCompleted(won.state, { taskId: 'after-story' }, DEFAULT_CONTENT);
+  assert.equal(noSecondReward.state.coins, coins);
+  assert.equal(advanceBattleStory(won.state, true, DEFAULT_CONTENT).state.adventure.activeBattle, null);
+});
+
+test('小地图每层只能选择当前节点且最终节点为 Boss', () => {
   const state = createInitialState(); state.pet.hp = 50;
   const reward = claimMapReward(state, 0); const duplicate = claimMapReward(reward.state, 0);
   assert.equal(reward.state.coins, 4); assert.equal(reward.state.pet.hp, 56); assert.equal(duplicate.events.length, 0);
-  assert.equal(reward.state.adventure.encounterIndex, 1); assert.equal(startBattleAt(reward.state, 0).events.length, 0); assert.equal(startBattleAt(reward.state, 1).events[0].type, 'BATTLE_STARTED'); assert.equal(claimMapReward({ ...reward.state, adventure: { ...reward.state.adventure, encounterIndex: DEFAULT_CONTENT.chapters[0].enemies.length - 1 } }, 2).events.length, 0);
+  assert.equal(startBattleAt(reward.state, 0).events.length, 0); assert.equal(startBattleAt(reward.state, 1).events[0].type, 'BATTLE_STARTED');
 });
 
-test('最多装备四个已学习技能', () => {
-  const content = structuredClone(DEFAULT_CONTENT); let state = createInitialState(); assert.deepEqual(state.pet.equippedSkills, ['strike', 'brace', 'ember-shot', 'tide-cut']); state.pet.learnedSkills = content.skills.map((skill) => skill.id); const result = setEquippedSkills(state, content.skills.map((skill) => skill.id), content); assert.equal(result.state.pet.equippedSkills.length, 4); assert.deepEqual(result.state.pet.equippedSkills, content.skills.slice(0, 4).map((skill) => skill.id));
+test('地图商店提供构筑内容，基础补给商店只出售消耗品', () => {
+  let state = createInitialState(); state.coins = 200;
+  assert.equal(purchaseItem(state, 'ember-chip').events.length, 0);
+  state = openMapShop(state, 0).state;
+  assert.equal(state.adventure.activeMapShopIndex, 0);
+  const bought = purchaseMapItem(state, 'ember-chip');
+  assert.equal(bought.state.pet.learnedSkills.includes('ember-shot'), true);
+  assert.equal(bought.events[0].payload.source, 'map');
+  const left = leaveMapShop(bought.state);
+  assert.equal(left.state.adventure.encounterIndex, 1);
+  assert.equal(left.state.adventure.activeMapShopIndex, null);
 });
 
-test('元素克制、同属性护盾减伤与物理独立规则使用明确倍率', () => {
-  const content = structuredClone(DEFAULT_CONTENT); content.skills.push({ id: 'test-fire', name: '测试火击', nameEn: 'Test Fire', description: '', cost: 1, type: 'fire', power: 1 }); content.chapters[0].enemies[0] = { ...content.chapters[0].enemies[0], element: 'ice', maxHp: 200, defense: 0, resistances: { physical: 0, fire: 0, water: 0, ice: 0, electric: 0 } };
-  let state = createInitialState(); state.pet.learnedSkills.push('test-fire'); state.pet.equippedSkills = ['strike', 'test-fire']; state = advanceBattleStory(startBattle(state, content).state, true, content).state;
-  const strong = useSkill(state, 'test-fire', content); assert.equal(strong.events[0].payload.multiplier, 1.5); assert.equal(strong.events[0].payload.damage, 18);
-  state = structuredClone(state); state.adventure.activeBattle.enemyBlock = 100; state.adventure.activeBattle.enemyBlockType = 'fire'; const sameShield = useSkill(state, 'test-fire', content); assert.equal(sameShield.events[0].payload.multiplier, 0.5); assert.equal(sameShield.events[0].payload.blockAbsorbed, 6);
-  state = structuredClone(state); state.adventure.activeBattle.enemyBlock = 100; state.adventure.activeBattle.enemyBlockType = 'fire'; const physical = useSkill(state, 'strike', content); assert.equal(physical.events[0].payload.multiplier, 1); assert.equal(physical.events[0].payload.blockAbsorbed, 12);
+test('连续自然日增长 streak，中断后归零；漏登先扣状态再扣 HP', () => {
+  let state = createInitialState('2026-09-08T08:00:00');
+  state = onTaskCompleted(state, { taskId: 'a', occurredAt: '2026-09-08T09:00:00' }).state;
+  state = onTaskCompleted(state, { taskId: 'b', occurredAt: '2026-09-09T09:00:00' }).state;
+  assert.equal(state.streak, 2);
+  state.pet.condition = 15; state.pet.hp = 100;
+  const result = onDayChecked(state, '2026-09-13T08:00:00');
+  assert.equal(result.state.streak, 0); assert.equal(result.state.pet.condition, 0); assert.equal(result.state.pet.hp, 85);
 });
 
-test('外部内容的倍率和百分比会归入简化档位', () => {
-  const content = structuredClone(DEFAULT_CONTENT); content.skills[0].power = 1.25; content.skills[0].weaken = 15; content.items[0].effects = { xpBonus: 33, damageBonus: { fire: 49 } };
-  const normalized = normalizeContent(content); assert.equal(normalized.skills[0].power, 1); assert.equal(normalized.skills[0].weaken, 10); assert.equal(normalized.items[0].effects.xpBonus, 20); assert.equal(normalized.items[0].effects.damageBonus.fire, 50);
+test('桌宠专注计时奖励按 sessionId 去重', () => {
+  const state = createInitialState('2026-09-12T08:00:00');
+  const first = onFocusSessionCompleted(state, { sessionId: 'focus-1', minutes: 25, occurredAt: '2026-09-12T09:00:00' });
+  const duplicate = onFocusSessionCompleted(first.state, { sessionId: 'focus-1', minutes: 25, occurredAt: '2026-09-12T09:30:00' });
+  assert.equal(first.state.totalFocusMinutes, 25); assert.equal(duplicate.events.length, 0); assert.equal(duplicate.state.totalFocusMinutes, 25);
 });
 
-test('战斗属性颜色和特效来自可校验的内容配置', () => {
-  const content = structuredClone(DEFAULT_CONTENT); content.battleVisuals.fire = { color: '#123abc', hitEffect: 'custom-flare', shieldEffect: '../unsafe' };
+test('基础补给商店只保留消耗品购买与刷新流程', () => {
+  let state = createInitialState(); state.coins = 200;
+  state = purchaseItem(state, 'repair-spray').state; state.pet.hp = 20;
+  state = useItem(state, 'repair-spray').state; assert.equal(state.pet.hp, 60);
+  const refreshed = refreshShop(state); assert.equal(refreshed.state.coins, 170); assert.ok(refreshed.state.shop.rotation.length > 0);
+  assert.ok(refreshed.state.shop.rotation.every((id) => DEFAULT_CONTENT.items.find((item) => item.id === id).shop === 'supply'));
+});
+
+test('外部内容只保留轻量技能、武器和饰品字段', () => {
+  const content = structuredClone(DEFAULT_CONTENT);
+  content.skills[0].baseDamage = 16;
+  content.items[0].combatEffect = { type: 'boss_damage', percent: 10 };
   const normalized = normalizeContent(content);
-  assert.deepEqual(normalized.battleVisuals.fire, { color: '#123abc', hitEffect: 'custom-flare', shieldEffect: 'fire' });
+  assert.equal(normalized.skills[0].baseDamage, 16);
+  assert.equal(normalized.items[0].combatEffect, undefined);
 });
 
-test('装备属性与先遣套装效果会进入最终战斗属性', () => {
-  let state = createInitialState(); state.coins = 200; state = purchaseItem(state, 'pioneer-blade').state; state = purchaseItem(state, 'pioneer-coat').state; state = equipItem(state, 'pioneer-blade').state; state = equipItem(state, 'pioneer-coat').state; const stats = getComputedStats(state); assert.equal(stats.attack, 19); assert.equal(stats.defense, 10); assert.equal(stats.maxHp, 115);
+test('连接衰减、陪伴模式、签到、招募与事件总线保持可用', async () => {
+  let state = createInitialState('2026-09-10T08:00:00Z');
+  const decay = onPetConnectionChecked(state, false, '2026-09-10T10:05:00Z', { disconnectDecayMinutes: 60, disconnectDecayAmount: 3 });
+  assert.equal(decay.state.pet.condition, 94);
+  state = setPlayMode(decay.state, 'companion').state; assert.equal(startBattle(state).events.length, 0);
+  state = checkIn(state, '2026-09-10T11:00:00').state; assert.equal(state.checkIn.streak, 1);
+  state = onPetTouched(state, '2026-09-10T12:00:00').state; assert.equal(state.pet.affinity.points, 3);
+  state = onGoalProgressUpdated(state, 'goal', 100, '2026-09-10T13:00:00').state; assert.equal(state.recruitment.tickets, 1);
+  assert.equal(recruit(state, 'seed').state.recruitment.tickets, 0);
+  const bus = new EventBus(); const received = []; const off = bus.on('TASK_COMPLETED', ({ taskId }) => { received.push(taskId); }); await bus.emit('TASK_COMPLETED', { taskId: 'a' }); off(); await bus.emit('TASK_COMPLETED', { taskId: 'b' }); assert.deepEqual(received, ['a']);
+  assert.deepEqual([100, 50, 20, 0].map(conditionRewardMultiplier), [1.2, 1, .9, .8]);
 });
 
-test('桌宠长时间断连会按间隔降低状态值', () => {
-  const state = createInitialState('2026-09-10T08:00:00Z'); const result = onPetConnectionChecked(state, false, '2026-09-10T10:05:00Z', { disconnectDecayMinutes: 60, disconnectDecayAmount: 3 }); assert.equal(result.state.pet.condition, 94); assert.equal(result.events[0].payload.lost, 6);
-});
-
-test('统一事件总线按注册顺序异步分发并可取消监听', async () => {
-  const bus = new EventBus(); const received = []; const off = bus.on('TASK_COMPLETED', async ({ taskId }) => { received.push(taskId); }); await bus.emit('TASK_COMPLETED', { taskId: 'a' }); off(); await bus.emit('TASK_COMPLETED', { taskId: 'b' }); assert.deepEqual(received, ['a']);
-});
-
-test('四类每日委托受每日 XP 上限约束并恢复状态与增加好感', () => {
-  let state = createInitialState('2026-09-12T08:00:00'); state.pet.condition = 50;
-  state = onTaskCompleted(state, { taskId: 'p', highPriority: true }).state;
-  state = onTaskCompleted(state, { taskId: 'b' }).state;
-  state = onTaskCompleted(state, { taskId: 'c' }).state;
-  state = onFocusTimeAdded(state, { minutes: 60 }).state;
-  state = onDailyReviewCompleted(state).state;
-  assert.equal(state.today.xpEarned, 100); assert.equal(state.xp, 100); assert.equal(state.pet.condition, 74); assert.equal(state.pet.affinity.points, 8);
-});
-
-test('抚摸每日最多增加三点好感，陪伴模式禁止进入战斗', () => {
-  let state = createInitialState('2026-09-12T08:00:00'); for (let index = 0; index < 5; index += 1) state = onPetTouched(state, '2026-09-12T09:00:00').state; assert.equal(state.pet.affinity.points, 3);
-  state = setPlayMode(state, 'companion').state; assert.equal(state.mode, 'companion'); assert.equal(startBattle(state).events.length, 0);
-});
-
-test('状态值使用四档明确倍率调整战斗收益', () => {
-  assert.deepEqual([100, 80, 79, 50, 49, 20, 19, 0].map(conditionRewardMultiplier), [1.2, 1.2, 1, 1, .9, .9, .8, .8]);
-});
-
-test('技能与装备最多强化三级并持续消耗金币', () => {
-  const content = structuredClone(DEFAULT_CONTENT); content.chapters[0].enemies[0] = { ...content.chapters[0].enemies[0], maxHp: 200, defense: 0 };
-  let state = createInitialState(); state.coins = 300; state = upgradeSkill(state, 'strike', content).state; assert.equal(state.pet.skillLevels.strike, 2); state = advanceBattleStory(startBattle(state, content).state, true, content).state; assert.equal(useSkill(state, 'strike', content).events[0].payload.damage, 18);
-  state = createInitialState(); state.coins = 300; state = purchaseItem(state, 'pioneer-blade').state; state = equipItem(state, 'pioneer-blade').state; state = upgradeEquipment(state, 'pioneer-blade').state; assert.equal(state.pet.equipmentLevels['pioneer-blade'], 1); assert.equal(getComputedStats(state).attack, 18);
-});
-
-test('商店刷新、药品与消耗品形成可重复金币消费', () => {
-  let state = createInitialState(); state.coins = 100; const refreshed = refreshShop(state); assert.equal(refreshed.state.coins, 90); assert.equal(refreshed.state.shop.rotation.length, 8);
-  state = refreshed.state; state.pet.hp = 20; state = purchaseItem(state, 'repair-spray').state; const used = useItem(state, 'repair-spray'); assert.equal(used.state.pet.hp, 60); assert.equal(used.state.pet.inventory['repair-spray'], undefined);
-});
-
-test('招募券来源去重，十抽保底且奖池不含纯数值装备', () => {
-  let state = createInitialState('2026-09-01T08:00:00');
-  state = onGoalProgressUpdated(state, 'graduate', 100, '2026-09-01T09:00:00').state;
-  state = onGoalProgressUpdated(state, 'graduate', 100, '2026-09-01T10:00:00').state;
-  assert.equal(state.recruitment.tickets, 1);
-  state.recruitment.pity = 9;
-  const result = recruit(state, 'guaranteed', '2026-09-01T11:00:00');
-  assert.equal(result.state.recruitment.tickets, 0);
-  assert.equal(result.events[0].payload.rarity, 'rare');
-  assert.equal(['weapon', 'armor', 'accessory'].includes(String(result.events[0].payload.type)), false);
-  assert.equal(result.state.recruitment.pity, 0);
-});
-
-test('连续签到每七天只发一张招募券', () => {
-  let state = createInitialState('2026-09-01T08:00:00');
-  for (let day = 1; day <= 7; day += 1) state = checkIn(state, `2026-09-${String(day).padStart(2, '0')}T09:00:00`).state;
-  assert.equal(state.recruitment.tickets, 1);
-  assert.equal(state.recruitment.ticketSources.length, 1);
+test('已记录的任务专注基线不会被当成新增奖励', () => {
+  let state = seedFocusTime(createInitialState(), 'task-1', 60).state;
+  state = onFocusTimeAdded(state, { sourceId: 'task-1', sourceTotalMinutes: 84 }).state;
+  assert.equal(state.today.focusRewardSteps, 0);
 });

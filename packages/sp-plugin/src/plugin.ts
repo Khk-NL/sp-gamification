@@ -1,12 +1,12 @@
 import {
   DEFAULT_CONTENT,
+  BATTLE_CONDITION_COST,
   EventBus,
   addDebugCoins,
   addDebugXp,
   advanceBattleStory,
   checkIn,
   claimMapReward,
-  endTurn,
   getBattleStory,
   getComputedStats,
   hydrateState,
@@ -20,7 +20,9 @@ import {
   onPetConnectionChecked,
   onPetTouched,
   onTaskCompleted,
+  openMapShop,
   purchaseItem,
+  purchaseMapItem,
   equipItem,
   resetState,
   recruit,
@@ -29,12 +31,11 @@ import {
   setPlayMode,
   startBattle,
   startBattleAt,
+  leaveMapShop,
   updatePetName,
-  upgradeEquipment,
-  upgradeSkill,
   refreshShop,
   useItem,
-  useSkill,
+  scaleEnemy,
   xpRequiredForLevel,
   createInitialState,
   type EngineResult,
@@ -95,11 +96,9 @@ interface CoreEvents {
   PLAY_MODE_CHANGED: { mode: PlayMode };
   BATTLE_STARTED: { encounterIndex?: number };
   MAP_REWARD_CLAIMED: { rewardIndex: number };
+  MAP_SHOP_OPENED: { shopIndex: number };
+  MAP_SHOP_LEFT: Record<string, never>;
   BATTLE_STORY_ADVANCED: { skip: boolean };
-  SKILL_USED: { skillId: string };
-  BATTLE_TURN_ENDED: Record<string, never>;
-  SKILL_UPGRADED: { skillId: string };
-  EQUIPMENT_UPGRADED: { itemId: string };
   SHOP_REFRESHED: Record<string, never>;
   GOAL_PROGRESS_UPDATED: { goalId: string; progress: number; occurredAt?: string };
 }
@@ -145,9 +144,9 @@ const persist = async (result: EngineResult): Promise<SPPetState> => { state = r
 const runEngine = (action: (current: SPPetState, cfg: PluginSettings, gameContent: GameContent) => EngineResult): Promise<SPPetState> => queue(async () => persist(action(await loadState(), await loadSettings(), await loadContent())));
 const seedTask = (task: SpTask | null | undefined): Promise<SPPetState> => !task?.id ? loadState() : runEngine((current) => seedFocusTime(current, task.id, task.timeSpent / 60_000));
 
-coreEvents.on('TASK_COMPLETED', async (payload) => { await runEngine((current, cfg) => onTaskCompleted(current, { ...payload, rules: cfg })); });
-coreEvents.on('FOCUS_SESSION_FINISHED', async (payload) => { await runEngine((current, cfg) => onFocusTimeAdded(current, { ...payload, rules: cfg })); });
-coreEvents.on('DESKTOP_FOCUS_COMPLETED', async (payload) => { await runEngine((current, cfg) => onFocusSessionCompleted(current, { ...payload, rules: cfg })); });
+coreEvents.on('TASK_COMPLETED', async (payload) => { await runEngine((current, cfg, gameContent) => onTaskCompleted(current, { ...payload, rules: cfg }, gameContent)); });
+coreEvents.on('FOCUS_SESSION_FINISHED', async (payload) => { await runEngine((current, cfg, gameContent) => onFocusTimeAdded(current, { ...payload, rules: cfg }, gameContent)); });
+coreEvents.on('DESKTOP_FOCUS_COMPLETED', async (payload) => { await runEngine((current, cfg, gameContent) => onFocusSessionCompleted(current, { ...payload, rules: cfg }, gameContent)); });
 coreEvents.on('DAILY_REVIEW_COMPLETED', async (payload) => { await runEngine((current, cfg) => onDailyReviewCompleted(current, payload.occurredAt, cfg)); });
 coreEvents.on('DAILY_CHECK_IN', async () => { await runEngine((current) => checkIn(current)); });
 coreEvents.on('PET_CONNECTION_CHANGED', async (payload) => { await runEngine((current, cfg) => onPetConnectionChecked(current, payload.connected, undefined, cfg)); });
@@ -155,11 +154,9 @@ coreEvents.on('PET_TOUCHED', async () => { await runEngine((current) => onPetTou
 coreEvents.on('PLAY_MODE_CHANGED', async (payload) => { await runEngine((current) => setPlayMode(current, payload.mode)); });
 coreEvents.on('BATTLE_STARTED', async (payload) => { await runEngine((current, _cfg, gameContent) => payload.encounterIndex === undefined ? startBattle(current, gameContent) : startBattleAt(current, payload.encounterIndex, gameContent)); });
 coreEvents.on('MAP_REWARD_CLAIMED', async (payload) => { await runEngine((current, _cfg, gameContent) => claimMapReward(current, payload.rewardIndex, gameContent)); });
+coreEvents.on('MAP_SHOP_OPENED', async (payload) => { await runEngine((current, _cfg, gameContent) => openMapShop(current, payload.shopIndex, gameContent)); });
+coreEvents.on('MAP_SHOP_LEFT', async () => { await runEngine((current, _cfg, gameContent) => leaveMapShop(current, gameContent)); });
 coreEvents.on('BATTLE_STORY_ADVANCED', async (payload) => { await runEngine((current, _cfg, gameContent) => advanceBattleStory(current, payload.skip, gameContent)); });
-coreEvents.on('SKILL_USED', async (payload) => { await runEngine((current, _cfg, gameContent) => useSkill(current, payload.skillId, gameContent)); });
-coreEvents.on('BATTLE_TURN_ENDED', async () => { await runEngine((current, _cfg, gameContent) => endTurn(current, gameContent)); });
-coreEvents.on('SKILL_UPGRADED', async (payload) => { await runEngine((current, _cfg, gameContent) => upgradeSkill(current, payload.skillId, gameContent)); });
-coreEvents.on('EQUIPMENT_UPGRADED', async (payload) => { await runEngine((current, _cfg, gameContent) => upgradeEquipment(current, payload.itemId, gameContent)); });
 coreEvents.on('SHOP_REFRESHED', async () => { await runEngine((current, _cfg, gameContent) => refreshShop(current, gameContent)); });
 coreEvents.on('GOAL_PROGRESS_UPDATED', async (payload) => { await runEngine((current) => onGoalProgressUpdated(current, payload.goalId, payload.progress, payload.occurredAt)); });
 
@@ -171,7 +168,7 @@ PluginAPI.registerHook(PluginAPI.Hooks.FINISH_DAY, async (payload) => { await co
 PluginAPI.registerHook(PluginAPI.Hooks.PERSISTED_DATA_CHANGED, async () => { const raw = await PluginAPI.loadSyncedData(STATE_KEY); if (!raw) return; try { const incoming = hydrateState(JSON.parse(raw), undefined, await loadSettings()); if (!state || incoming.updatedAt > state.updatedAt) { state = incoming; bridgePublish([]); } } catch { /* Keep last valid state. */ } });
 PluginAPI.registerHook(PluginAPI.Hooks.LANGUAGE_CHANGE, () => undefined);
 
-const responseState = async () => { const cfg = await loadSettings(); const { leaderboardToken: _privateToken, ...publicSettings } = cfg; const gameContent = await loadContent(); const dayResult = onDayChecked(await loadState(), undefined, cfg); const connectionResult = onPetConnectionChecked(dayResult.state, bridgeStatus === 'connected', undefined, cfg); const events = [...dayResult.events, ...connectionResult.events]; if (events.length) await persist({ state: connectionResult.state, events }); else state = connectionResult.state; const snapshot = state!; return { ok: true, state: snapshot, settings: publicSettings, content: gameContent, computedStats: getComputedStats(snapshot, gameContent), nextLevelXp: xpRequiredForLevel(snapshot.level), battleStory: snapshot.adventure.activeBattle ? getBattleStory(snapshot, gameContent) : null, bridge: { status: bridgeStatus, url: PET_BRIDGE_URL, lastAck: bridgeLastAck, pendingEvents: pendingEvents.length }, online: { leaderboardRegistered: Boolean(cfg.leaderboardToken), pluginVersion: PLUGIN_VERSION }, site: { home: SITE_ORIGIN, leaderboard: `${SITE_ORIGIN}/`, tools: `${SITE_ORIGIN}/tools.html`, developer: `${SITE_ORIGIN}/developer.html` } }; };
+const responseState = async () => { const cfg = await loadSettings(); const { leaderboardToken: _privateToken, ...publicSettings } = cfg; const gameContent = await loadContent(); const dayResult = onDayChecked(await loadState(), undefined, cfg); const connectionResult = onPetConnectionChecked(dayResult.state, bridgeStatus === 'connected', undefined, cfg); const events = [...dayResult.events, ...connectionResult.events]; if (events.length) await persist({ state: connectionResult.state, events }); else state = connectionResult.state; const snapshot = state!; return { ok: true, state: snapshot, settings: publicSettings, content: gameContent, battleConditionCost: BATTLE_CONDITION_COST, scaledEnemies: gameContent.chapters.map((chapter, chapterIndex) => chapter.enemies.map((_enemy, encounterIndex) => scaleEnemy(gameContent, chapterIndex, encounterIndex))), computedStats: getComputedStats(snapshot), nextLevelXp: xpRequiredForLevel(snapshot.level), battleStory: snapshot.adventure.activeBattle ? getBattleStory(snapshot, gameContent) : null, bridge: { status: bridgeStatus, url: PET_BRIDGE_URL, lastAck: bridgeLastAck, pendingEvents: pendingEvents.length }, online: { leaderboardRegistered: Boolean(cfg.leaderboardToken), pluginVersion: PLUGIN_VERSION }, site: { home: SITE_ORIGIN, leaderboard: `${SITE_ORIGIN}/`, tools: `${SITE_ORIGIN}/tools.html`, developer: `${SITE_ORIGIN}/developer.html` } }; };
 const refreshRemoteContent = async (): Promise<{ ok: boolean; error?: string }> => { try { const incoming = await apiClient.content(); content = normalizeContent(incoming); await PluginAPI.persistDataSynced(JSON.stringify(content), CONTENT_KEY); return { ok: true }; } catch (error) { return { ok: false, error: error instanceof Error ? error.message : String(error) }; } };
 const versionParts = (value: string): number[] => value.split('.').map((part) => Number.parseInt(part, 10) || 0);
 const isNewerVersion = (candidate: string, current: string): boolean => { const a = versionParts(candidate), b = versionParts(current); for (let index = 0; index < Math.max(a.length, b.length); index += 1) { if ((a[index] || 0) !== (b[index] || 0)) return (a[index] || 0) > (b[index] || 0); } return false; };
@@ -188,15 +185,14 @@ PluginAPI.onMessage?.(async (message: unknown) => {
       case 'startBattle': await coreEvents.emit('BATTLE_STARTED', {}); break;
       case 'startBattleAt': await coreEvents.emit('BATTLE_STARTED', { encounterIndex: Number(data.encounterIndex) }); break;
       case 'claimMapReward': await coreEvents.emit('MAP_REWARD_CLAIMED', { rewardIndex: Number(data.rewardIndex) }); break;
+      case 'openMapShop': await coreEvents.emit('MAP_SHOP_OPENED', { shopIndex: Number(data.shopIndex) }); break;
+      case 'leaveMapShop': await coreEvents.emit('MAP_SHOP_LEFT', {}); break;
       case 'advanceStory': await coreEvents.emit('BATTLE_STORY_ADVANCED', { skip: Boolean(data.skip) }); break;
-      case 'useSkill': await coreEvents.emit('SKILL_USED', { skillId: String(data.skillId ?? '') }); break;
-      case 'endTurn': await coreEvents.emit('BATTLE_TURN_ENDED', {}); break;
-      case 'upgradeSkill': await coreEvents.emit('SKILL_UPGRADED', { skillId: String(data.skillId ?? '') }); break;
-      case 'upgradeEquipment': await coreEvents.emit('EQUIPMENT_UPGRADED', { itemId: String(data.itemId ?? '') }); break;
       case 'refreshShop': await coreEvents.emit('SHOP_REFRESHED', {}); break;
       case 'recruit': await runEngine((current) => recruit(current, String(data.seed ?? ''))); break;
       case 'setEquippedSkills': await runEngine((current, _cfg, gameContent) => setEquippedSkills(current, Array.isArray(data.skillIds) ? data.skillIds.map(String) : [], gameContent)); break;
       case 'purchaseItem': await runEngine((current, _cfg, gameContent) => purchaseItem(current, String(data.itemId ?? ''), gameContent)); break;
+      case 'purchaseMapItem': await runEngine((current, _cfg, gameContent) => purchaseMapItem(current, String(data.itemId ?? ''), gameContent)); break;
       case 'equipItem': await runEngine((current, _cfg, gameContent) => equipItem(current, String(data.itemId ?? ''), gameContent)); break;
       case 'useItem': await runEngine((current, _cfg, gameContent) => useItem(current, String(data.itemId ?? ''), gameContent)); break;
       case 'savePetSettings': {

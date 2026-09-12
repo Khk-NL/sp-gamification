@@ -1,70 +1,74 @@
-import type { DamageType, GameContent, Resistances } from './types.js';
-
-export const ZERO_RESISTANCE: Resistances = { physical: 0, fire: 0, water: 0, ice: 0, electric: 0 };
-const resist = (changes: Partial<Resistances> = {}): Resistances => ({ ...ZERO_RESISTANCE, ...changes });
+import type { DamageType, GameContent, ScaledEnemyDefinition } from './types.js';
 
 export const DEFAULT_CONTENT: GameContent = {
-  version: 1,
+  version: 2,
   battleVisuals: {
-    physical: { color: '#a69a8c', hitEffect: 'physical', shieldEffect: 'physical' },
-    fire: { color: '#f06a42', hitEffect: 'fire', shieldEffect: 'fire' },
-    water: { color: '#3e9ed8', hitEffect: 'water', shieldEffect: 'water' },
-    ice: { color: '#8de8f2', hitEffect: 'ice', shieldEffect: 'ice' },
-    electric: { color: '#f1cf3f', hitEffect: 'electric', shieldEffect: 'electric' },
+    physical: { color: '#a69a8c', hitEffect: 'physical' },
+    fire: { color: '#bd7865', hitEffect: 'fire' },
+    water: { color: '#6f94aa', hitEffect: 'water' },
+    ice: { color: '#9bb5b8', hitEffect: 'ice' },
+    electric: { color: '#b6a46d', hitEffect: 'electric' },
   },
   skills: [
-    { id: 'strike', name: '战术打击', nameEn: 'Tactical Strike', description: '造成攻击 ×1 的物理伤害。', cost: 1, type: 'physical', power: 1 },
-    { id: 'brace', name: '防御姿态', nameEn: 'Brace', description: '造成攻击 ×0.5 的物理伤害，获得 10 点物理护盾。', cost: 1, type: 'physical', power: 0.5, block: 10 },
-    { id: 'ember-shot', name: '灼流弹', nameEn: 'Ember Shot', description: '造成攻击 ×1 的火伤，每回合追加 4 点灼烧。', cost: 2, type: 'fire', power: 1, burn: 4 },
-    { id: 'tide-cut', name: '潮切', nameEn: 'Tide Cut', description: '造成攻击 ×1.5 的水属性伤害。', cost: 2, type: 'water', power: 1.5 },
-    { id: 'frost-ward', name: '霜盾', nameEn: 'Frost Ward', description: '造成攻击 ×0.5 的冰伤，获得 8 点冰盾并降低敌方下次伤害 20%。', cost: 2, type: 'ice', power: 0.5, block: 8, weaken: 20 },
-    { id: 'arc-burst', name: '弧光过载', nameEn: 'Arc Burst', description: '造成攻击 ×1.5 的电属性伤害。', cost: 3, type: 'electric', power: 1.5 },
+    { id: 'strike', name: '战术打击', nameEn: 'Tactical Strike', description: '14 点物理伤害。', type: 'physical', cost: 1, baseDamage: 14 },
+    { id: 'ember-shot', name: '灼流弹', nameEn: 'Ember Shot', description: '13 点火属性伤害。', type: 'fire', cost: 2, baseDamage: 13 },
+    { id: 'tide-cut', name: '潮切', nameEn: 'Tide Cut', description: '14 点水属性伤害。', type: 'water', cost: 2, baseDamage: 14 },
+    { id: 'frost-ward', name: '霜息', nameEn: 'Frost Breath', description: '12 点冰属性伤害，并恢复 4 HP。', type: 'ice', cost: 2, baseDamage: 12, effect: { type: 'heal', value: 4 } },
+    { id: 'arc-burst', name: '弧光过载', nameEn: 'Arc Burst', description: '15 点电属性伤害。', type: 'electric', cost: 3, baseDamage: 15 },
   ],
   items: [
-    { id: 'signal-visor', kind: 'skin', name: '信号目镜', nameEn: 'Signal Visor', description: '可替换的面部皮肤部件。', price: 24, icon: 'VIS' },
-    { id: 'field-hood', kind: 'skin', name: '战地兜帽', nameEn: 'Field Hood', description: '低调的行动兜帽。', price: 32, icon: 'HD' },
-    { id: 'ember-chip', kind: 'skill', name: '灼流芯片', nameEn: 'Ember Chip', description: '解锁技能“灼流弹”。', price: 45, icon: 'SK', grantsSkill: 'ember-shot' },
-    { id: 'tide-chip', kind: 'skill', name: '潮汐芯片', nameEn: 'Tide Chip', description: '解锁技能“潮切”。', price: 52, icon: 'SK', grantsSkill: 'tide-cut' },
-    { id: 'frost-chip', kind: 'skill', name: '霜盾芯片', nameEn: 'Frost Chip', description: '解锁技能“霜盾”。', price: 58, icon: 'SK', grantsSkill: 'frost-ward' },
-    { id: 'arc-chip', kind: 'skill', name: '弧光芯片', nameEn: 'Arc Chip', description: '解锁技能“弧光过载”。', price: 72, icon: 'SK', grantsSkill: 'arc-burst' },
-    { id: 'pioneer-blade', kind: 'weapon', name: '先遣短刃', nameEn: 'Pioneer Blade', description: '攻击 +4；先遣套装部件。', price: 65, icon: 'WPN', slot: 'weapon', setId: 'pioneer', effects: { attack: 4, damageBonus: { physical: 10 } } },
-    { id: 'ember-lance', kind: 'weapon', name: '熔核长枪', nameEn: 'Ember Lance', description: '攻击 +6，火伤 +20%。', price: 105, icon: 'WPN', slot: 'weapon', effects: { attack: 6, damageBonus: { fire: 20 } } },
-    { id: 'frost-cutter', kind: 'weapon', name: '霜线切割器', nameEn: 'Frostline Cutter', description: '攻击 +5，冰伤 +10%；霜线套装部件。', price: 98, icon: 'WPN', slot: 'weapon', setId: 'frostline', effects: { attack: 5, damageBonus: { ice: 10 } } },
-    { id: 'pioneer-coat', kind: 'armor', name: '先遣外套', nameEn: 'Pioneer Coat', description: '防御 +3，生命 +15；先遣套装部件。', price: 75, icon: 'ARM', slot: 'armor', setId: 'pioneer', effects: { defense: 3, maxHp: 15 } },
-    { id: 'frost-plate', kind: 'armor', name: '霜线护甲', nameEn: 'Frostline Plate', description: '防御 +5，生命 +20。', price: 112, icon: 'ARM', slot: 'armor', setId: 'frostline', effects: { defense: 5, maxHp: 20 } },
-    { id: 'relay-module', kind: 'accessory', name: '中继模组', nameEn: 'Relay Module', description: '生命 +10，防御 +2。', price: 88, icon: 'ACC', slot: 'accessory', effects: { maxHp: 10, defense: 2 } },
-    { id: 'field-ration', kind: 'food', name: '行动口粮', nameEn: 'Field Ration', description: '恢复 25 HP 和 10 状态。', price: 12, icon: 'FOOD', effects: { heal: 25, condition: 10 } },
-    { id: 'comfort-tea', kind: 'food', name: '安神热饮', nameEn: 'Comfort Tea', description: '恢复 30 状态。', price: 18, icon: 'FOOD', effects: { condition: 30 } },
-    { id: 'training-pack', kind: 'food', name: '训练补给', nameEn: 'Training Pack', description: '下一场战斗攻击 +3、经验 +20%。', price: 26, icon: 'BUFF', effects: { attack: 3, xpBonus: 20 } },
-    { id: 'repair-spray', kind: 'medicine', name: '修复喷剂', nameEn: 'Repair Spray', description: '恢复 40 HP。', price: 20, icon: 'MED', effects: { heal: 40 } },
-    { id: 'reward-beacon', kind: 'consumable', name: '奖励信标', nameEn: 'Reward Beacon', description: '下一场战斗金币 +20%。', price: 24, icon: 'USE', effects: { coinBonus: 20 } },
+    { id: 'signal-visor', kind: 'skin', shop: 'map', name: '信号目镜', nameEn: 'Signal Visor', description: '可替换的面部皮肤部件。', price: 24, icon: 'VIS' },
+    { id: 'field-hood', kind: 'skin', shop: 'map', name: '旅行兜帽', nameEn: 'Travel Hood', description: '低调的旅行兜帽。', price: 32, icon: 'HD' },
+    { id: 'ember-chip', kind: 'skill', shop: 'map', name: '灼流芯片', nameEn: 'Ember Chip', description: '解锁技能“灼流弹”。', price: 45, icon: 'SK', grantsSkill: 'ember-shot' },
+    { id: 'tide-chip', kind: 'skill', shop: 'map', name: '潮汐芯片', nameEn: 'Tide Chip', description: '解锁技能“潮切”。', price: 52, icon: 'SK', grantsSkill: 'tide-cut' },
+    { id: 'frost-chip', kind: 'skill', shop: 'map', name: '霜息芯片', nameEn: 'Frost Chip', description: '解锁技能“霜息”。', price: 58, icon: 'SK', grantsSkill: 'frost-ward' },
+    { id: 'arc-chip', kind: 'skill', shop: 'map', name: '弧光芯片', nameEn: 'Arc Chip', description: '解锁技能“弧光过载”。', price: 72, icon: 'SK', grantsSkill: 'arc-burst' },
+    { id: 'ember-lance', kind: 'weapon', shop: 'map', name: '熔核长枪', nameEn: 'Ember Lance', description: '火属性伤害 +20%。', price: 90, icon: 'WPN', slot: 'weapon', combatEffect: { type: 'element_damage', element: 'fire', percent: 20 } },
+    { id: 'boss-breaker', kind: 'weapon', shop: 'map', name: '破阵短刃', nameEn: 'Boss Breaker', description: '对 Boss 伤害 +20%。', price: 105, icon: 'WPN', slot: 'weapon', combatEffect: { type: 'boss_damage', percent: 20 } },
+    { id: 'study-charm', kind: 'accessory', shop: 'map', name: '求知书签', nameEn: 'Study Bookmark', description: '战斗 XP +10%。', price: 80, icon: 'ACC', slot: 'accessory', growthEffect: { type: 'xp', percent: 10 } },
+    { id: 'coin-pouch', kind: 'accessory', shop: 'map', name: '零钱袋', nameEn: 'Coin Pouch', description: '战斗金币 +10%。', price: 80, icon: 'ACC', slot: 'accessory', growthEffect: { type: 'coins', percent: 10 } },
+    { id: 'frost-badge', kind: 'accessory', shop: 'map', name: '霜纹徽记', nameEn: 'Frost Badge', description: '将防御属性设为冰。', price: 70, icon: 'ICE', slot: 'accessory', combatEffect: { type: 'guard_element', element: 'ice' } },
+    { id: 'tide-badge', kind: 'accessory', shop: 'map', name: '潮纹徽记', nameEn: 'Tide Badge', description: '将防御属性设为水。', price: 70, icon: 'WTR', slot: 'accessory', combatEffect: { type: 'guard_element', element: 'water' } },
+    { id: 'field-ration', kind: 'food', shop: 'supply', name: '行动口粮', nameEn: 'Field Ration', description: '恢复 25 HP 和 10 状态。', price: 12, icon: 'FOOD', restore: { hp: 25, condition: 10 } },
+    { id: 'comfort-tea', kind: 'food', shop: 'supply', name: '安神热饮', nameEn: 'Comfort Tea', description: '恢复 30 状态。', price: 18, icon: 'FOOD', restore: { condition: 30 } },
+    { id: 'repair-spray', kind: 'medicine', shop: 'supply', name: '修复喷剂', nameEn: 'Repair Spray', description: '恢复 40 HP。', price: 20, icon: 'MED', restore: { hp: 40 } },
   ],
   chapters: [
     { id: 'waste-relay', name: '第一章：废墟中继站', nameEn: 'CH.1 Wasteland Relay', summary: '清理失控设施并夺回中继节点。', enemies: [
-      { id: 'scrap-drone', name: '废件巡游机', nameEn: 'Scrap Drone', element: 'electric', maxHp: 52, attack: 9, defense: 1, resistances: resist({ electric: -15, physical: 10 }), intents: [{ kind: 'attack', value: 8, type: 'physical', label: '切割 8', labelEn: 'Slash 8' }, { kind: 'guard', value: 7, type: 'electric', label: '电盾 7', labelEn: 'Volt Guard 7' }, { kind: 'attack', value: 11, type: 'electric', label: '放电 11', labelEn: 'Shock 11' }], xp: 24, coins: 12 },
-      { id: 'crystal-hound', name: '结晶猎犬', nameEn: 'Crystal Hound', element: 'ice', maxHp: 76, attack: 11, defense: 2, resistances: resist({ ice: 25, fire: -20 }), intents: [{ kind: 'buff', value: 2, label: '蓄势 +2 攻', labelEn: 'Sharpen +2 ATK' }, { kind: 'attack', value: 13, type: 'ice', label: '冰咬 13', labelEn: 'Frost Bite 13' }, { kind: 'attack', value: 8, type: 'physical', label: '连扑 8', labelEn: 'Pounce 8' }], xp: 34, coins: 18 },
-      { id: 'relay-overseer', name: '中继监管者', nameEn: 'Relay Overseer', element: 'fire', maxHp: 128, attack: 14, defense: 4, resistances: resist({ physical: 15, water: -15 }), intents: [{ kind: 'guard', value: 12, type: 'fire', label: '火盾 12', labelEn: 'Flame Barrier 12' }, { kind: 'attack', value: 14, type: 'fire', label: '热线 14', labelEn: 'Heat Ray 14' }, { kind: 'buff', value: 3, label: '超频 +3 攻', labelEn: 'Overclock +3 ATK' }, { kind: 'attack', value: 20, type: 'electric', label: '过载 20', labelEn: 'Overload 20' }], xp: 62, coins: 38, isBoss: true },
+      { id: 'scrap-drone', name: '废件巡游机', nameEn: 'Scrap Drone', attackElement: 'electric', defenseElement: 'electric', hpMultiplier: .9, attackMultiplier: .9, defenseMultiplier: .8, rewardMultiplier: .9 },
+      { id: 'crystal-hound', name: '结晶猎犬', nameEn: 'Crystal Hound', attackElement: 'physical', defenseElement: 'ice', hpMultiplier: 1.1, attackMultiplier: 1, defenseMultiplier: 1, rewardMultiplier: 1 },
+      { id: 'relay-overseer', name: '中继监管者', nameEn: 'Relay Overseer', attackElement: 'electric', defenseElement: 'fire', hpMultiplier: 1.05, attackMultiplier: 1, defenseMultiplier: 1, rewardMultiplier: 1, isBoss: true },
     ] },
     { id: 'frozen-quarry', name: '第二章：冻结采掘区', nameEn: 'CH.2 Frozen Quarry', summary: '穿越低温矿坑，处理异常核心。', enemies: [
-      { id: 'mist-caster', name: '雾流术体', nameEn: 'Mist Caster', element: 'water', maxHp: 92, attack: 14, defense: 3, resistances: resist({ water: 25, electric: -15 }), intents: [{ kind: 'attack', value: 12, type: 'water', label: '潮涌 12', labelEn: 'Surge 12' }, { kind: 'guard', value: 9, type: 'water', label: '水幕 9', labelEn: 'Water Veil 9' }, { kind: 'attack', value: 17, type: 'ice', label: '凝结 17', labelEn: 'Freeze 17' }], xp: 46, coins: 24 },
-      { id: 'furnace-shell', name: '熔炉重壳', nameEn: 'Furnace Shell', element: 'fire', maxHp: 145, attack: 16, defense: 7, resistances: resist({ fire: 40, water: -25 }), intents: [{ kind: 'guard', value: 15, type: 'fire', label: '火壳 15', labelEn: 'Flame Shell 15' }, { kind: 'attack', value: 18, type: 'fire', label: '喷焰 18', labelEn: 'Flame 18' }, { kind: 'attack', value: 10, type: 'physical', label: '碾压 10', labelEn: 'Crush 10' }], xp: 58, coins: 31 },
-      { id: 'quarry-heart', name: '采掘区心脏', nameEn: 'Quarry Heart', element: 'ice', maxHp: 210, attack: 19, defense: 6, resistances: resist({ ice: 30, fire: -10, electric: -10 }), intents: [{ kind: 'buff', value: 4, label: '升压 +4 攻', labelEn: 'Pressure +4 ATK' }, { kind: 'attack', value: 16, type: 'ice', label: '寒潮 16', labelEn: 'Cold Wave 16' }, { kind: 'guard', value: 18, type: 'ice', label: '冰壁 18', labelEn: 'Ice Wall 18' }, { kind: 'attack', value: 25, type: 'physical', label: '坍塌 25', labelEn: 'Collapse 25' }], xp: 92, coins: 55, isBoss: true },
+      { id: 'mist-caster', name: '雾流术体', nameEn: 'Mist Caster', attackElement: 'water', defenseElement: 'electric', hpMultiplier: .95, attackMultiplier: 1.05, defenseMultiplier: .9, rewardMultiplier: 1 },
+      { id: 'furnace-shell', name: '熔炉重壳', nameEn: 'Furnace Shell', attackElement: 'fire', defenseElement: 'fire', hpMultiplier: 1.2, attackMultiplier: .9, defenseMultiplier: 1.2, rewardMultiplier: 1.1 },
+      { id: 'quarry-heart', name: '采掘区心脏', nameEn: 'Quarry Heart', attackElement: 'ice', defenseElement: 'water', hpMultiplier: 1.1, attackMultiplier: 1.05, defenseMultiplier: 1.1, rewardMultiplier: 1.1, isBoss: true, specialEffect: { type: 'opening_damage', value: 5 } },
     ] },
   ],
 };
 
 const damageTypes: DamageType[] = ['physical', 'fire', 'water', 'ice', 'electric'];
-const percentTier = (value: unknown): number => { const number = Number(value) || 0; if (number <= 0) return 0; if (number <= 15) return 10; if (number <= 35) return 20; return 50; };
-const multiplierTier = (value: unknown): number => { const number = Number(value) || 0; if (number <= 0) return 0; if (number < 1) return .5; if (number < 1.5) return 1; return 1.5; };
+const safeMultiplier = (value: unknown): number => Math.min(2, Math.max(.5, Number(value) || 1));
+const safeToken = (candidate: unknown, fallback: string): string => typeof candidate === 'string' && /^[a-z0-9-]{1,32}$/i.test(candidate) ? candidate : fallback;
+const safeColor = (candidate: unknown, fallback: string): string => typeof candidate === 'string' && /^#[0-9a-f]{6}$/i.test(candidate) ? candidate : fallback;
+
+export const scaleEnemy = (contentInput: GameContent, chapterIndex: number, encounterIndex: number): ScaledEnemyDefinition => {
+  const content = normalizeContent(contentInput); const chapter = content.chapters[Math.max(0, chapterIndex) % content.chapters.length]; const enemy = chapter.enemies[Math.max(0, encounterIndex) % chapter.enemies.length];
+  const chapterLevel = Math.max(0, chapterIndex), stageLevel = Math.max(0, encounterIndex), bossHp = enemy.isBoss ? 1.8 : 1, bossAttack = enemy.isBoss ? 1.2 : 1, bossDefense = enemy.isBoss ? 1.25 : 1, bossReward = enemy.isBoss ? 2 : 1;
+  const maxHp = Math.round((42 + chapterLevel * 28 + stageLevel * 14) * enemy.hpMultiplier * bossHp);
+  const attack = Math.round((8 + chapterLevel * 3 + stageLevel * 2) * enemy.attackMultiplier * bossAttack);
+  const defense = Math.max(0, Math.round((1 + chapterLevel * 2 + Math.floor(stageLevel / 2)) * enemy.defenseMultiplier * bossDefense));
+  const xp = Math.round((18 + chapterLevel * 10 + stageLevel * 5) * enemy.rewardMultiplier * bossReward);
+  const coins = Math.round((8 + chapterLevel * 5 + stageLevel * 3) * enemy.rewardMultiplier * bossReward);
+  return { ...enemy, maxHp, attack, defense, xp, coins };
+};
+
 export const normalizeContent = (input: unknown): GameContent => {
   if (!input || typeof input !== 'object') return DEFAULT_CONTENT;
-  const value = input as Partial<GameContent>;
-  if (!Array.isArray(value.skills) || !Array.isArray(value.items) || !Array.isArray(value.chapters) || !value.chapters.length) return DEFAULT_CONTENT;
-  const skills = value.skills.map((skill) => ({ ...skill, power: multiplierTier(skill.power), weaken: percentTier(skill.weaken) || undefined }));
-  const items = value.items.map((item) => { const effects = item.effects ? { ...item.effects } : undefined; if (effects) { effects.xpBonus = percentTier(effects.xpBonus) || undefined; effects.coinBonus = percentTier(effects.coinBonus) || undefined; if (effects.damageBonus) effects.damageBonus = Object.fromEntries(Object.entries(effects.damageBonus).map(([type, amount]) => [type, percentTier(amount)])); } return { ...item, effects }; });
-  const chapters = value.chapters.filter((chapter) => chapter && Array.isArray(chapter.enemies) && chapter.enemies.length).map((chapter) => ({ ...chapter, enemies: chapter.enemies.map((enemy) => ({ ...enemy, element: enemy.element && damageTypes.includes(enemy.element) ? enemy.element : 'physical', resistances: { ...ZERO_RESISTANCE, ...(enemy.resistances ?? {}) }, intents: Array.isArray(enemy.intents) && enemy.intents.length ? enemy.intents.filter((intent) => intent && ['attack', 'guard', 'buff'].includes(intent.kind) && (!intent.type || damageTypes.includes(intent.type))) : [{ kind: 'attack' as const, value: 5, type: 'physical' as const, label: '攻击 5', labelEn: 'Attack 5' }] })) }));
-  const safeToken = (candidate: unknown, fallback: string): string => typeof candidate === 'string' && /^[a-z0-9-]{1,32}$/i.test(candidate) ? candidate : fallback;
-  const safeColor = (candidate: unknown, fallback: string): string => typeof candidate === 'string' && /^#[0-9a-f]{6}$/i.test(candidate) ? candidate : fallback;
-  const battleVisuals = Object.fromEntries(damageTypes.map((type) => { const fallback = DEFAULT_CONTENT.battleVisuals[type], visual = value.battleVisuals?.[type]; return [type, { color: safeColor(visual?.color, fallback.color), hitEffect: safeToken(visual?.hitEffect, fallback.hitEffect), shieldEffect: safeToken(visual?.shieldEffect, fallback.shieldEffect) }]; })) as GameContent['battleVisuals'];
-  return chapters.length ? { version: Number(value.version) || 1, skills, items, chapters, battleVisuals } : DEFAULT_CONTENT;
+  const value = input as Partial<GameContent>; if (!Array.isArray(value.skills) || !Array.isArray(value.items) || !Array.isArray(value.chapters) || !value.chapters.length) return DEFAULT_CONTENT;
+  const skills = value.skills.filter(Boolean).map((skill) => { const legacy = skill as typeof skill & { power?: number; heal?: number; cost?: number }; const baseDamage = Math.max(1, Math.round(Number(skill.baseDamage) || 12 * (Number(legacy.power) || 1))); return { id: String(skill.id), name: String(skill.name), nameEn: String(skill.nameEn), description: String(skill.description || ''), type: damageTypes.includes(skill.type) ? skill.type : 'physical' as const, cost: Math.min(5, Math.max(1, Math.round(Number(legacy.cost) || 1))), baseDamage, effect: skill.effect?.type === 'heal' ? { type: 'heal' as const, value: Math.max(1, Math.round(skill.effect.value)) } : legacy.heal ? { type: 'heal' as const, value: Math.max(1, Math.round(legacy.heal)) } : undefined }; });
+  const items = value.items.filter((item) => item && ['skin', 'skill', 'weapon', 'accessory', 'food', 'medicine'].includes(item.kind)).map((item) => { const effect = item.combatEffect; const combatEffect = effect?.type === 'guard_element' && damageTypes.includes(effect.element) ? effect : effect && (effect.type === 'boss_damage' || effect.type === 'element_damage') && effect.percent === 20 && (effect.type === 'boss_damage' || damageTypes.includes(effect.element as DamageType)) ? effect : undefined; return { ...item, shop: item.shop === 'supply' || item.shop === 'map' ? item.shop : ['food', 'medicine'].includes(item.kind) ? 'supply' as const : 'map' as const, slot: item.slot === 'weapon' || item.slot === 'accessory' ? item.slot : undefined, combatEffect, growthEffect: item.growthEffect?.percent === 10 && ['xp', 'coins'].includes(item.growthEffect.type) ? item.growthEffect : undefined }; });
+  const chapters = value.chapters.filter((chapter) => chapter && Array.isArray(chapter.enemies) && chapter.enemies.length).map((chapter) => ({ ...chapter, enemies: chapter.enemies.map((enemy) => { const legacy = enemy as typeof enemy & { element?: DamageType }; const fallbackElement = damageTypes.includes(legacy.element as DamageType) ? legacy.element as DamageType : 'physical'; return { id: String(enemy.id), name: String(enemy.name), nameEn: String(enemy.nameEn), attackElement: damageTypes.includes(enemy.attackElement) ? enemy.attackElement : fallbackElement, defenseElement: damageTypes.includes(enemy.defenseElement) ? enemy.defenseElement : fallbackElement, hpMultiplier: safeMultiplier(enemy.hpMultiplier), attackMultiplier: safeMultiplier(enemy.attackMultiplier), defenseMultiplier: safeMultiplier(enemy.defenseMultiplier), rewardMultiplier: safeMultiplier(enemy.rewardMultiplier), isBoss: Boolean(enemy.isBoss) || undefined, specialEffect: enemy.specialEffect?.type === 'opening_damage' ? { type: 'opening_damage' as const, value: Math.max(1, Math.round(enemy.specialEffect.value)) } : undefined, storyBefore: enemy.storyBefore, storyAfter: enemy.storyAfter }; }) }));
+  const battleVisuals = Object.fromEntries(damageTypes.map((type) => { const fallback = DEFAULT_CONTENT.battleVisuals[type], visual = value.battleVisuals?.[type]; return [type, { color: safeColor(visual?.color, fallback.color), hitEffect: safeToken(visual?.hitEffect, fallback.hitEffect) }]; })) as GameContent['battleVisuals'];
+  return chapters.length && skills.length ? { version: Number(value.version) || 2, skills, items, chapters, battleVisuals } : DEFAULT_CONTENT;
 };

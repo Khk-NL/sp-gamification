@@ -38,6 +38,7 @@ contextBridge.exposeInMainWorld('petApi', {
   wakePet: () => ipcRenderer.invoke('behavior-wake'),
   setSettingsOpen: (open) => ipcRenderer.send('pet-settings-open', open),
   setInteractive: (interactive) => ipcRenderer.send('pet-set-interactive', interactive),
+  focusWindow: () => ipcRenderer.send('pet-focus-window'),
   dragStart: () => ipcRenderer.send('pet-drag-start'),
   dragMove: () => ipcRenderer.send('pet-drag-move'),
   dragEnd: () => ipcRenderer.send('pet-drag-end'),

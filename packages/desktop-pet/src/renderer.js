@@ -14,7 +14,7 @@ const behaviorPanel = document.getElementById('behavior-panel');
 const overlayPanels = [settingsPanel, chatPanel, historyPanel, focusPanel, productivityPanel, observationPanel, behaviorPanel];
 const messageQueue = [];
 let snapshot = null, showingMessage = false, messageTimer = null, activeSkinId = null, frame = 0, spriteState = 'idle', lastInteraction = Date.now();
-let dragGesture = null, mouseInteractive = null, activeEventEffect = null, eventEffectTimer = null;
+let dragGesture = null, lastGestureDragged = false, mouseInteractive = null, activeEventEffect = null, eventEffectTimer = null;
 let idleLines = ['休息一下也没关系。'], clickLines = ['收到！'];
 let activeCharacter = null, characterState = 'idle', characterStateTimer = null, characterAnimationTimer = null;
 let characterAudio = null;
@@ -25,7 +25,7 @@ const CHARACTER_STATES = ['idle', 'walk', 'sleep', 'happy', 'sad', 'angry', 'tir
 const anyPanelOpen = () => overlayPanels.some((panel) => panel.classList.contains('open'));
 
 const randomLine = (values, fallback) => values.length ? values[Math.floor(Math.random() * values.length)] : fallback;
-const eventFeedback = (entry) => { const p = entry.payload || {}; if (entry.type === 'FOCUS_TIMER_COMPLETED') return { message: p.capped ? `专注 ${p.minutes} 分钟完成；今日 ${p.dailyCap} 次奖励已领满。` : `专注完成！+${p.xp} XP +${p.coins} 金币，状态 +${p.condition}。`, state: 'happy' }; if (entry.type === 'COMMISSION_COMPLETED') return { message: `委托完成，获得 ${p.xp} XP。`, state: 'happy' }; if (entry.type === 'LEVEL_UP') return { message: `升级至 Lv.${p.level}，新的能力已解锁。`, effect: 'win', state: 'victory' }; if (entry.type === 'CHECK_IN') return { message: `签到补给已送达：${p.coins} 金币。`, state: 'happy' }; if (entry.type === 'MAP_REWARD_CLAIMED') return { message: `发现补给：${p.coins} 金币，恢复 ${p.heal} HP。`, effect: 'reward', state: 'happy' }; if (entry.type === 'BATTLE_STARTED') return { message: `战斗开始！目标：${p.enemy || '未知敌人'}。`, effect: 'start', state: 'battle' }; if (entry.type === 'BATTLE_WON') return { message: `战斗胜利！获得 ${p.xp} XP 和 ${p.coins} 金币。`, effect: 'win', state: 'victory' }; if (entry.type === 'BATTLE_LOST') return { message: `宠物倒下了。状态下降至 ${p.condition}，恢复至 ${p.hp} HP。`, effect: 'lose', state: 'defeat' }; if (entry.type === 'SKILL_UPGRADED') return { message: `技能强化至 Lv.${p.level}，消耗 ${p.cost} 金币。`, effect: 'reward', state: 'happy' }; if (entry.type === 'EQUIPMENT_UPGRADED') return { message: `${p.name} 强化至 +${p.level}。`, effect: 'reward', state: 'happy' }; if (entry.type === 'ITEM_USED') return { message: `${p.name} 已使用。`, state: 'eat' }; if (entry.type === 'PET_CONDITION_CHANGED' && p.reason === 'missed_login') return { message: `漏登 ${p.missedDays} 天：状态 -${p.lost}${p.hpLost ? `，HP -${p.hpLost}` : ''}。`, effect: p.hpLost ? 'lose' : undefined, state: p.hpLost ? 'sad' : 'tired' }; if (entry.type === 'PET_CONDITION_CHANGED') return { message: `连接中断太久，状态下降了 ${p.lost}。`, state: 'tired' }; return null; };
+const eventFeedback = (entry) => { const p = entry.payload || {}; if (entry.type === 'FOCUS_TIMER_COMPLETED') return { message: p.capped ? `专注 ${p.minutes} 分钟完成；今日 ${p.dailyCap} 次奖励已领满。` : `专注完成！+${p.xp} XP +${p.coins} 金币，状态 +${p.condition}。`, state: 'happy' }; if (entry.type === 'COMMISSION_COMPLETED') return { message: `委托完成，获得 ${p.xp} XP。`, state: 'happy' }; if (entry.type === 'LEVEL_UP') return { message: `升级至 Lv.${p.level}，新的能力已解锁。`, effect: 'win', state: 'victory' }; if (entry.type === 'CHECK_IN') return { message: `签到补给已送达：${p.coins} 金币。`, state: 'happy' }; if (entry.type === 'MAP_REWARD_CLAIMED') return { message: `发现补给：${p.coins} 金币，恢复 ${p.heal} HP。`, effect: 'reward', state: 'happy' }; if (entry.type === 'BATTLE_STARTED') return { message: `战斗开始！目标：${p.enemy || '未知敌人'}。`, effect: 'start', state: 'battle' }; if (entry.type === 'BATTLE_ADVANCED') return { message: `${p.skill} 自动出击，目标剩余 ${p.enemyHp} HP。`, state: 'battle' }; if (entry.type === 'BATTLE_WON') return { message: `战斗胜利！获得 ${p.xp} XP 和 ${p.coins} 金币。`, effect: 'win', state: 'victory' }; if (entry.type === 'BATTLE_LOST') return { message: `宠物倒下了。状态下降至 ${p.condition}，恢复至 ${p.hp} HP。`, effect: 'lose', state: 'defeat' }; if (entry.type === 'ITEM_USED') return { message: `${p.name} 已使用。`, state: 'eat' }; if (entry.type === 'PET_CONDITION_CHANGED' && p.reason === 'missed_login') return { message: `漏登 ${p.missedDays} 天：状态 -${p.lost}${p.hpLost ? `，HP -${p.hpLost}` : ''}。`, effect: p.hpLost ? 'lose' : undefined, state: p.hpLost ? 'sad' : 'tired' }; if (entry.type === 'PET_CONDITION_CHANGED') return { message: `连接中断太久，状态下降了 ${p.lost}。`, state: 'tired' }; return null; };
 const react = (enabled) => { pet.classList.toggle('react', enabled); customSprite.style.animationDuration = enabled ? '.42s' : '1.8s'; };
 const playPetEffect = (effect) => { clearTimeout(eventEffectTimer); if (activeEventEffect) document.getElementById('desktop').classList.remove(`event-${activeEventEffect}`); activeEventEffect = effect || null; if (!activeEventEffect) return; const desktop = document.getElementById('desktop'); void desktop.offsetWidth; desktop.classList.add(`event-${activeEventEffect}`); eventEffectTimer = setTimeout(() => { desktop.classList.remove(`event-${activeEventEffect}`); activeEventEffect = null; }, 1800); };
 const drawCharacterResource = (resource) => { if (resource?.kind === 'emoji') { characterElement.textContent = resource.value; characterElement.style.backgroundImage = ''; } else if (resource?.kind === 'image') { characterElement.textContent = ''; characterElement.style.backgroundImage = `url("${resource.value}")`; } };
@@ -93,7 +93,13 @@ window.addEventListener('mousemove', syncMouseInteraction, { passive: true });
 window.addEventListener('blur', () => { if (dragGesture?.moved) window.petApi.dragEnd(); dragGesture = null; setDragVisual(false); setMouseInteractive(false); });
 petZone.addEventListener('mouseenter', () => { setMouseInteractive(true); lastInteraction = Date.now(); if (!showingMessage && !anyPanelOpen()) showBubble(statsHtml(), 60_000, true); });
 petZone.addEventListener('mouseleave', (event) => { lastInteraction = Date.now(); if (!dragGesture && !contextMenu.classList.contains('open')) syncMouseInteraction(event); if (!messageQueue.length) { clearTimeout(messageTimer); bubble.classList.remove('show'); react(false); showingMessage = false; } });
-const showClickLine = () => { lastInteraction = Date.now(); contextMenu.classList.remove('open'); window.petApi.touched(); setCharacterState('touch', 2200); showBubble(randomLine(clickLines, '收到！')); };
+const openChatPanel = () => {
+  lastInteraction = Date.now();
+  contextMenu.classList.remove('open');
+  window.petApi.focusWindow();
+  openPanel(chatPanel);
+  requestAnimationFrame(() => document.getElementById('chat-input').focus());
+};
 const setDragVisual = (dragging, direction = null) => {
   petZone.classList.toggle('dragging', dragging);
   petZone.classList.toggle('drag-left', dragging && direction === 'left');
@@ -105,16 +111,18 @@ const setDragVisual = (dragging, direction = null) => {
 petZone.addEventListener('pointerdown', (event) => {
   if (event.button !== 0 || anyPanelOpen()) return;
   setMouseInteractive(true);
-  event.preventDefault();
   petZone.setPointerCapture?.(event.pointerId);
   dragGesture = { pointerId: event.pointerId, startX: event.screenX, startY: event.screenY, lastX: event.screenX, moved: false };
+  lastGestureDragged = false;
 });
 petZone.addEventListener('pointermove', (event) => {
   if (!dragGesture || dragGesture.pointerId !== event.pointerId) return;
   const dx = event.screenX - dragGesture.startX, dy = event.screenY - dragGesture.startY;
   if (!dragGesture.moved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+  event.preventDefault();
   if (!dragGesture.moved) {
     dragGesture.moved = true;
+    lastGestureDragged = true;
     clearTimeout(messageTimer); bubble.classList.remove('show'); showingMessage = false; react(false);
     window.petApi.dragStart();
     setDragVisual(true);
@@ -132,7 +140,7 @@ const finishPointerGesture = (event, cancelled = false) => {
   if (moved) window.petApi.dragEnd();
   setDragVisual(false);
   lastInteraction = Date.now();
-  if (!moved && !cancelled) showClickLine();
+  if (!moved && !cancelled) { window.petApi.touched(); setCharacterState('touch', 1200); showBubble(randomLine(clickLines, '收到！')); }
   setTimeout(() => { if (!petZone.matches(':hover') && !contextMenu.classList.contains('open') && !anyPanelOpen()) setMouseInteractive(false); }, 0);
 };
 petZone.addEventListener('pointerup', (event) => finishPointerGesture(event));
@@ -140,6 +148,7 @@ petZone.addEventListener('pointercancel', (event) => finishPointerGesture(event,
 petZone.addEventListener('lostpointercapture', (event) => finishPointerGesture(event, true));
 window.addEventListener('pointerup', (event) => finishPointerGesture(event), true);
 window.addEventListener('pointercancel', (event) => finishPointerGesture(event, true), true);
+petZone.addEventListener('dblclick', (event) => { if (event.button !== 0 || lastGestureDragged) return; event.preventDefault(); openChatPanel(); });
 document.body.addEventListener('contextmenu', (event) => { event.preventDefault(); setMouseInteractive(true); lastInteraction = Date.now(); if (!event.target.closest('.overlay-panel')) contextMenu.classList.toggle('open'); });
 document.body.addEventListener('click', (event) => { if (!event.target.closest('#context-menu') && !event.target.closest('#pet-zone')) { contextMenu.classList.remove('open'); syncMouseInteraction(event); } });
 setInterval(() => {
@@ -155,7 +164,7 @@ setInterval(() => {
 const openPanel = (panel) => { setMouseInteractive(true); contextMenu.classList.remove('open'); overlayPanels.forEach((entry) => entry.classList.toggle('open', entry === panel)); window.petApi.setSettingsOpen(true); };
 const closePanels = () => { overlayPanels.forEach((panel) => panel.classList.remove('open')); window.petApi.setSettingsOpen(false); playNext(); setTimeout(() => { if (!petZone.matches(':hover')) setMouseInteractive(false); }, 0); };
 const openSettings = () => openPanel(settingsPanel);
-document.getElementById('open-settings').addEventListener('click', openSettings); document.getElementById('open-chat').addEventListener('click', () => openPanel(chatPanel)); document.getElementById('open-history').addEventListener('click', () => openPanel(historyPanel)); document.getElementById('open-focus').addEventListener('click', () => openPanel(focusPanel)); document.getElementById('open-productivity').addEventListener('click', () => openPanel(productivityPanel)); document.getElementById('open-observation').addEventListener('click', () => openPanel(observationPanel)); document.getElementById('open-behavior').addEventListener('click', () => openPanel(behaviorPanel)); document.querySelectorAll('.panel-close').forEach((button) => button.addEventListener('click', closePanels)); window.petApi.onOpenSettings(openSettings);
+document.getElementById('open-settings').addEventListener('click', openSettings); document.getElementById('open-chat').addEventListener('click', openChatPanel); document.getElementById('open-history').addEventListener('click', () => openPanel(historyPanel)); document.getElementById('open-focus').addEventListener('click', () => openPanel(focusPanel)); document.getElementById('open-productivity').addEventListener('click', () => openPanel(productivityPanel)); document.getElementById('open-observation').addEventListener('click', () => openPanel(observationPanel)); document.getElementById('open-behavior').addEventListener('click', () => openPanel(behaviorPanel)); document.querySelectorAll('.panel-close').forEach((button) => button.addEventListener('click', closePanels)); window.petApi.onOpenSettings(openSettings);
 document.getElementById('hide').addEventListener('click', () => window.petApi.hide()); document.getElementById('close').addEventListener('click', () => window.petApi.close());
 document.getElementById('skin').addEventListener('click', async () => { try { const skin = await window.petApi.selectSkin(); if (skin) { renderSkin(skin); showBubble(`已载入皮肤：${skin.meta.displayName}`); } } catch (error) { showBubble(error.message || String(error)); } });
 document.getElementById('clear-skin').addEventListener('click', async () => { await window.petApi.clearSkin(); renderSkin(null); showBubble('已恢复默认外观。'); });
