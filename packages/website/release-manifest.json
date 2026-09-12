@@ -1,7 +1,7 @@
 {
-  "version": "0.12.0",
-  "downloadUrl": "https://sppet.scsldr.cn/downloads/SPPet-SP-v0.12.0.zip",
-  "changelog": "统一 /api/v1 在线接口，加入可选排行榜鉴权、在线内容目录、活动接口与安全更新检查。",
-  "sha256": "8bb7ecab880370eed5da9d1faece365f64fc2c73995f82592a6317b783b6fd00",
-  "minCompatibleVersion": "0.11.0"
+  "version": "0.13.0",
+  "downloadUrl": "https://sppet.scsldr.cn/downloads/SPPet-SP-v0.13.0.zip",
+  "changelog": "加入默认关闭的本地长期记忆、主动生成的观察日记，以及可切换 local / remote / disabled 的 TTS Provider。",
+  "sha256": "6724885d314c568911a2676cf80b26f12d9eaf78e116a9a19ae68aecac70fcc1",
+  "minCompatibleVersion": "0.12.0"
 }

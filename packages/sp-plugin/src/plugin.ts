@@ -48,7 +48,7 @@ const STATE_KEY = 'gamification-state-v1'; // Legacy key retained so v0.1/v0.2 u
 const SETTINGS_KEY = 'sppet-settings-v1';
 const CONTENT_KEY = 'sppet-content-v1';
 const PET_BRIDGE_URL = 'ws://127.0.0.1:47821';
-const PLUGIN_VERSION = '0.12.0';
+const PLUGIN_VERSION = '0.13.0';
 
 interface PluginSettings extends GameRules {
   language: 'zh' | 'en';

@@ -36,7 +36,7 @@ pnpm package:plugin
 生成：
 
 ```text
-packages\sp-plugin\release\SPPet-SP-v0.12.0.zip
+packages\sp-plugin\release\SPPet-SP-v0.13.0.zip
 ```
 
 在 Super Productivity“设置 → 插件 → 选择插件文件”中导入。最低支持 SP 18.21.2。
@@ -57,7 +57,7 @@ pnpm dev:pet
 pnpm package:pet
 ```
 
-解压 `SPPet-v0.12.0-win-x64.zip`，运行 `SPPet.exe`。桌宠默认只显示角色：
+解压 `SPPet-v0.13.0-win-x64.zip`，运行 `SPPet.exe`。桌宠默认只显示角色：
 
 - 悬停：显示 Lv、XP、状态值、streak、金币。
 - 左键：播放用户设置的互动台词。
@@ -77,6 +77,9 @@ pnpm package:pet
 - “当前窗口读取”和“主动屏幕分析”是两项独立权限，均默认关闭。前者只在用户点击时读取进程名/标题；后者只在点击“看看我的屏幕”时截取并压缩当前显示器一次，分析后不保存图片。
 - 右键“专注计时”可设置 5–120 分钟，以及用户自己的工作/娱乐/游戏关键词。启用窗口读取权限后，专注期间每 10 秒只在本地分类并提醒偏离；完成奖励每日最多 4 次，同一 session 只结算一次。
 - 右键“个人计划”可分别启用课程表、日记、长期目标和重要日子。四个模块默认关闭且不影响桌宠基础运行；日记只有在单独授权并主动点击后才会交给 AI。
+- “历史与记忆”可独立开启长期记忆；对话摘要和本地 embedding 保存在 `%APPDATA%\SPPet\memories.db`，新对话只检索相关记忆。关闭不会删除数据，逐条删除和清空会真实修改 SQLite。
+- “观察日记”保留最近 30 天的六类结构化本地事件，只有点击“生成今日观察日记”才会把当天摘要交给 AI。
+- TTS 默认 disabled，可切换 localhost 的 local Provider 或 HTTPS remote Provider。朗读时根据音频振幅驱动开/闭嘴两态；TTS API Key 只保留在当前进程内。
 
 ## 游戏规则
 

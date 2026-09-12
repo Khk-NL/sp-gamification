@@ -237,3 +237,24 @@
 ### 下一阶段
 
 - Phase 9：长期记忆、观察日记、TTS Provider，并复核现有主动 Vision 的阶段完整性。
+
+## Phase 9：长期记忆、观察日记与 TTS（2026-09-12，v0.13.0）
+
+### 已完成
+
+- 保留 Phase 6A 的主动 Vision：截图权限独立且默认关闭，仅点击后截取一次压缩图，不保存图像。
+- 新增本地 `MemoryStore`，将对话摘要、正文和 64 维确定性 embedding 写入 SQLite；启用后新对话检索最相关的 3 条记忆注入 Context。
+- 长期记忆默认关闭，提供查看、逐条删除、关闭和清空；删除历史会通过 sourceHistoryId 删除真实关联记录，更新 Prompt 不删除长期记忆。
+- 新增 `ObservationJournal`，按 id 去重保存最近 30 天的专注、战斗、喂食、心情、任务和互动事件。
+- “生成今日观察日记”只有用户点击才会把当天结构化摘要交给现有 AI，并要求角色用第一人称输出；不会自动上传完整事件库。
+- 新增 `TTSService` 与 disabled/local/remote Provider，使用 OpenAI 风格 audio/speech 请求；远程 HTTPS、本机 localhost HTTP，API Key 仅在会话内存。
+- 播放语音时通过 Web Audio 振幅切换开/闭嘴两态，不实现复杂 Lip Sync；实时 STT 留到最后阶段。
+
+### 验证
+
+- 桌宠 18 项测试全部通过，覆盖记忆检索/关联删除/清空、六类观察事件/去重、TTS 默认关闭/本机调用/API Key 不落盘，以及此前全部桌宠模块。
+- 主进程、preload 和 renderer 语法检查通过；插件构建、类型检查和 SP iframe smoke test 通过。
+
+### 下一阶段
+
+- Phase 10：多角色独立状态、昼夜/情绪/主动行为，以及高级资源扩展的最小收口。

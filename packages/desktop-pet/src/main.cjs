@@ -9,6 +9,8 @@ const { AiService } = require('./ai-service.cjs');
 const { SystemAwareness } = require('./system-awareness.cjs');
 const { FocusTimer } = require('./focus-timer.cjs');
 const { ProductivityHub } = require('./productivity-modules.cjs');
+const { ObservationJournal } = require('./observation-journal.cjs');
+const { TTSService } = require('./tts-service.cjs');
 
 const appData = process.env.APPDATA || os.homedir();
 const DATA_DIRECTORY = process.env.SPPET_DATA_DIR || process.env.SP_GAMIFICATION_DATA_DIR || path.join(appData, 'SPPet');
@@ -29,6 +31,8 @@ const aiService = new AiService(DATA_DIRECTORY);
 const systemAwareness = new SystemAwareness(DATA_DIRECTORY);
 const focusTimer = new FocusTimer(DATA_DIRECTORY);
 const productivityHub = new ProductivityHub(DATA_DIRECTORY);
+const observationJournal = new ObservationJournal(DATA_DIRECTORY);
+const ttsService = new TTSService(DATA_DIRECTORY);
 
 const readJson = (file, fallback) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; } };
 const writeJsonAtomic = (file, value) => { const temp = `${file}.${process.pid}.tmp`; fs.writeFileSync(temp, `${JSON.stringify(value, null, 2)}\n`, 'utf8'); fs.renameSync(temp, file); };
@@ -51,13 +55,13 @@ const publishSnapshot = () => {
   if (!initialized) { const cursor = readJson(CURSOR_FILE, { lastEventId: null }); lastEventId = typeof cursor.lastEventId === 'string' ? cursor.lastEventId : events.at(-1)?.id ?? null; initialized = true; }
   let cursorIndex = lastEventId ? events.findIndex((entry) => entry.id === lastEventId) : -1; if (lastEventId && cursorIndex < 0) cursorIndex = events.length - 1; const unseen = cursorIndex >= 0 ? events.slice(cursorIndex + 1) : lastEventId ? [] : events;
   if (unseen.length) { lastEventId = unseen.at(-1).id; writeJsonAtomic(CURSOR_FILE, { lastEventId, updatedAt: new Date().toISOString() }); }
-  windowRef.webContents.send('sppet-snapshot', { state, events: unseen, dataDirectory: DATA_DIRECTORY, bridge: { connected: bridgeConnected, port: BRIDGE_PORT, lastSync: bridgeLastSync }, skin: currentSkin(), character: currentCharacter(), characters: assetManager.list(), petSettings: readJson(PET_SETTINGS_FILE, { size: 1, alwaysOnTop: true, gravityEnabled: true, autoWalk: false }), petProfile: readJson(PET_PROFILE_FILE, { idleLines: [], clickLines: [] }), ai: { ...aiService.snapshot(), systemPrompt: aiService.systemPrompt() }, awareness: systemAwareness.snapshot(), focus: focusTimer.snapshot(), productivity: productivityHub.snapshot() });
+  windowRef.webContents.send('sppet-snapshot', { state, events: unseen, dataDirectory: DATA_DIRECTORY, bridge: { connected: bridgeConnected, port: BRIDGE_PORT, lastSync: bridgeLastSync }, skin: currentSkin(), character: currentCharacter(), characters: assetManager.list(), petSettings: readJson(PET_SETTINGS_FILE, { size: 1, alwaysOnTop: true, gravityEnabled: true, autoWalk: false }), petProfile: readJson(PET_PROFILE_FILE, { idleLines: [], clickLines: [] }), ai: { ...aiService.snapshot(), systemPrompt: aiService.systemPrompt() }, awareness: systemAwareness.snapshot(), focus: focusTimer.snapshot(), productivity: productivityHub.snapshot(), observations: observationJournal.summary(), tts: ttsService.snapshot() });
 };
 const scheduleRead = () => { clearTimeout(readTimer); readTimer = setTimeout(publishSnapshot, 90); };
 
 const mergeSync = (message) => {
   if (!message?.state || !Array.isArray(message.events)) return []; const stored = readJson(EVENTS_FILE, { events: [] }); const byId = new Map((Array.isArray(stored.events) ? stored.events : []).map((entry) => [entry.id, entry])); for (const entry of message.events) if (entry && typeof entry.id === 'string') byId.set(entry.id, entry);
-  const events = [...byId.values()].sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp))).slice(-100); writeJsonAtomic(STATE_FILE, message.state); writeJsonAtomic(EVENTS_FILE, { version: 1, events }); if (message.petSettings && typeof message.petSettings === 'object') writeJsonAtomic(PET_PROFILE_FILE, message.petSettings); bridgeLastSync = new Date().toISOString(); scheduleRead(); return message.events.map((entry) => entry.id).filter(Boolean);
+  const events = [...byId.values()].sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp))).slice(-100); writeJsonAtomic(STATE_FILE, message.state); writeJsonAtomic(EVENTS_FILE, { version: 1, events }); observationJournal.recordMany(message.events); if (message.petSettings && typeof message.petSettings === 'object') writeJsonAtomic(PET_PROFILE_FILE, message.petSettings); bridgeLastSync = new Date().toISOString(); scheduleRead(); return message.events.map((entry) => entry.id).filter(Boolean);
 };
 const encodeFrame = (value) => { const payload = Buffer.from(value), length = payload.length; if (length < 126) return Buffer.concat([Buffer.from([0x81, length]), payload]); if (length < 65536) { const header = Buffer.alloc(4); header[0] = 0x81; header[1] = 126; header.writeUInt16BE(length, 2); return Buffer.concat([header, payload]); } const header = Buffer.alloc(10); header[0] = 0x81; header[1] = 127; header.writeBigUInt64BE(BigInt(length), 2); return Buffer.concat([header, payload]); };
 const sendBridgeEvent = (type, payload = {}) => { const frame = encodeFrame(JSON.stringify({ type, ...payload, occurredAt: payload.occurredAt || new Date().toISOString() })); for (const socket of bridgeSockets) if (!socket.destroyed) socket.write(frame); };
@@ -99,7 +103,7 @@ ipcMain.on('pet-drag-move', (event) => {
   const bounds = windowRef.getBounds(); const workArea = screen.getDisplayNearestPoint(pointer).workArea; const x = Math.min(workArea.x + workArea.width - bounds.width, Math.max(workArea.x, dragSession.windowX + pointer.x - dragSession.pointerX)); const y = Math.min(workArea.y + workArea.height - bounds.height, Math.max(workArea.y, dragSession.windowY + pointer.y - dragSession.pointerY)); const [currentX, currentY] = windowRef.getPosition(); if (x !== currentX || y !== currentY) windowRef.setPosition(x, y, false);
 });
 ipcMain.on('pet-drag-end', (event) => { if (fromPetWindow(event)) { dragSession = null; startFall(); } });
-ipcMain.on('pet-touched', (event) => { if (fromPetWindow(event)) sendBridgeEvent('PET_TOUCHED'); });
+ipcMain.on('pet-touched', (event) => { if (fromPetWindow(event)) { sendBridgeEvent('PET_TOUCHED'); observationJournal.record({ type: 'PET_TOUCHED', occurredAt: new Date().toISOString(), payload: {} }); } });
 ipcMain.handle('pet-select-skin', async () => { const result = await dialog.showOpenDialog(windowRef, { title: '选择桌宠 pet.json', properties: ['openFile'], filters: [{ name: 'Pet skin', extensions: ['json'] }] }); if (result.canceled || !result.filePaths[0]) return null; const skin = loadSkin(result.filePaths[0]); updatePetSettings({ skinJsonPath: result.filePaths[0] }); publishSnapshot(); return skin; });
 ipcMain.handle('pet-clear-skin', async () => { updatePetSettings({ skinJsonPath: null }); publishSnapshot(); return true; });
 ipcMain.handle('pet-set-top', async (_event, enabled) => { windowRef?.setAlwaysOnTop(Boolean(enabled)); updatePetSettings({ alwaysOnTop: Boolean(enabled) }); return Boolean(enabled); });
@@ -115,6 +119,8 @@ ipcMain.handle('ai-set-key', async (event, value) => { if (!fromPetWindow(event)
 ipcMain.handle('ai-chat', async (event, value) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); const entry = await aiService.chat(value); publishSnapshot(); return entry; });
 ipcMain.handle('ai-delete-history', async (event, id) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); const removed = aiService.deleteHistory(String(id)); publishSnapshot(); return removed; });
 ipcMain.handle('ai-clear-history', async (event) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); aiService.clearHistory(); publishSnapshot(); return true; });
+ipcMain.handle('ai-delete-memory', async (event, id) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); const removed = aiService.deleteMemory(String(id)); publishSnapshot(); return removed; });
+ipcMain.handle('ai-clear-memories', async (event) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); aiService.clearMemories(); publishSnapshot(); return true; });
 ipcMain.handle('awareness-update-settings', async (event, changes) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); const value = systemAwareness.updateSettings(changes || {}); publishSnapshot(); return value; });
 ipcMain.handle('awareness-read-window', async (event) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); const value = await systemAwareness.readCurrentWindow(); publishSnapshot(); return value; });
 ipcMain.handle('awareness-vision', async (event) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); if (!systemAwareness.settings().visionEnabled) throw new Error('请先明确启用主动屏幕分析权限'); const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()); const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 1280, height: 720 } }); const source = sources.find((entry) => String(entry.display_id) === String(display.id)) || sources[0]; if (!source || source.thumbnail.isEmpty()) throw new Error('无法获取当前屏幕截图'); const imageDataUrl = `data:image/jpeg;base64,${source.thumbnail.toJPEG(60).toString('base64')}`; const entry = await aiService.vision(imageDataUrl); publishSnapshot(); return entry; });
@@ -123,4 +129,9 @@ ipcMain.handle('focus-start', async (event) => { if (!fromPetWindow(event)) thro
 ipcMain.handle('focus-cancel', async (event) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); const value = focusTimer.cancel(); publishSnapshot(); return value; });
 ipcMain.handle('productivity-replace', async (event, moduleName, value) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); const result = productivityHub.replace(String(moduleName), value || {}); for (const entry of result.events) windowRef?.webContents.send('productivity-event', entry); publishSnapshot(); return result; });
 ipcMain.handle('productivity-journal-ai', async (event) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); const journal = productivityHub.todayJournal(); const entry = await aiService.chat(`这是我今天主动选择分享的日记，请只基于这段文字给出简短回应：\n${journal.text}`); publishSnapshot(); return entry; });
-app.on('before-quit', () => { watcher?.close(); characterWatcher?.close(); bridgeServer?.close(); clearTimeout(readTimer); clearInterval(fallTimer); clearInterval(walkTimer); clearInterval(focusTickTimer); clearInterval(focusWindowTimer); clearInterval(productivityTimer); }); app.on('window-all-closed', () => {});
+ipcMain.handle('observation-generate', async (event) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); const summary = observationJournal.summary(); if (!summary.events.length) throw new Error('今天还没有可写入观察日记的结构化事件'); const entry = await aiService.chat(`请以桌宠第一人称，根据下面由用户主动选择分享的今日结构化事件生成简短观察日记。只使用提供的数据，不推断隐私：\n${JSON.stringify(summary)}`, 'observation'); publishSnapshot(); return entry; });
+ipcMain.handle('observation-clear', async (event) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); observationJournal.clear(); publishSnapshot(); return true; });
+ipcMain.handle('tts-update-settings', async (event, changes) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); const value = ttsService.updateSettings(changes || {}); publishSnapshot(); return value; });
+ipcMain.handle('tts-set-key', async (event, value) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); const stored = ttsService.setSessionApiKey(value); publishSnapshot(); return stored; });
+ipcMain.handle('tts-speak', async (event, value) => { if (!fromPetWindow(event)) throw new Error('无效窗口'); return ttsService.speak(value); });
+app.on('before-quit', () => { watcher?.close(); characterWatcher?.close(); bridgeServer?.close(); clearTimeout(readTimer); clearInterval(fallTimer); clearInterval(walkTimer); clearInterval(focusTickTimer); clearInterval(focusWindowTimer); clearInterval(productivityTimer); aiService.close(); observationJournal.close(); }); app.on('window-all-closed', () => {});

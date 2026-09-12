@@ -2,7 +2,7 @@
 
 ## 当前阶段
 
-Phase 8 已完成，当前版本 `0.12.0`；下一阶段为 Phase 9（Vision、长期记忆、观察日记与 TTS）。
+Phase 9 已完成，当前版本 `0.13.0`；下一阶段为 Phase 10（多角色与高级扩展收口）。
 
 ## 已完成
 
@@ -21,6 +21,8 @@ Phase 8 已完成，当前版本 `0.12.0`；下一阶段为 Phase 9（Vision、�
 - 课程表、日记、长期目标、重要日子作为四个默认关闭的本地可选模块运行，并发送课程、目标和日期事件。
 - 在线功能统一经过 `/api/v1` API Client；Catalog 有本地缓存，排行榜默认关闭并使用设备 Token、范围/增长上限和 nonce 防重放。
 - 更新检查会展示版本与日志，用户确认后下载，并在插件内校验 ZIP 的 SHA-256；SP 官方不提供插件自安装 API，因此安装仍由用户在插件设置中选择 ZIP。
+- 长期记忆默认关闭；开启后对话摘要与本地 embedding 写入 `memories.db`，新对话检索相关记忆，历史删除会同步删除关联记忆。
+- 观察日记保存最近 30 天六类结构化事件，只有用户点击后才调用 AI；TTS 通过 disabled/local/remote Provider 抽象并使用两态口型。
 
 ## 重要文件
 
@@ -36,6 +38,9 @@ Phase 8 已完成，当前版本 `0.12.0`；下一阶段为 Phase 9（Vision、�
 - `packages/desktop-pet/src/productivity-modules.cjs`：四类可选个人计划数据、授权和提醒事件。
 - `packages/sp-plugin/src/api-client.ts`：统一在线入口、Token 和 API 路由。
 - `packages/website/server.mjs`：SQLite 登录、设备鉴权、排行榜和在线内容服务。
+- `packages/desktop-pet/src/memory-store.cjs`：本地 embedding、相似度检索与真实删除。
+- `packages/desktop-pet/src/observation-journal.cjs`：六类结构化事件和最近 30 天观察记录。
+- `packages/desktop-pet/src/tts-service.cjs`：可替换 TTS Provider 与会话级 API Key。
 - `DEVELOP_LOG.md`：阶段审计和完成记录。
 
 ## 当前数据结构
@@ -52,9 +57,9 @@ Phase 8 已完成，当前版本 `0.12.0`；下一阶段为 Phase 9（Vision、�
 
 - 高优先级任务暂以 SP 标签 `high`、`high priority`、`高优先级` 或 `重要` 判断；官方 Plugin API 当前暴露的任务类型没有稳定优先级字段。
 - Event Bus 已覆盖现实行为入口；战斗/商店 UI 命令仍由插件适配层调用 core，待对应模块拆分阶段继续迁移。
-- 桌宠暂不识别其他应用窗口顶部；Spine/Live2D、多层实时换装、长期记忆、观察日记与 TTS 尚未完成。
+- 桌宠暂不识别其他应用窗口顶部；Spine/Live2D、多层实时换装、`.sppetpack` 解压、实时 STT 和多角色同屏尚未完成。
 - pnpm 当前运行时版本与已有 `node_modules` 元数据不一致，会尝试重装；本阶段使用仓库现有 `node_modules/.bin` 工具验证，没有重装依赖。
 
 ## 下一阶段
 
-Phase 9 在保留现有主动 Vision 边界的基础上，实现长期记忆、结构化观察日记与抽象 TTS Provider。
+Phase 10 完成多角色独立档案、昼夜/情绪/主动行为和资源包高级扩展，同时避免 AI-to-AI 无限对话。

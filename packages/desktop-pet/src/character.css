@@ -22,6 +22,9 @@
 .pet-zone.state-fall .shadow { opacity: .25; transform: translateX(-50%) scale(.65); }
 .pet-zone.state-drag .character { transform: translateX(-50%) rotate(-5deg); }
 .pet-zone.drag-left .character { transform: translateX(-50%) scaleX(-1) rotate(5deg); }
+.pet-zone.tts-mouth-open .pet .mouth { height: 15px; border: 4px solid var(--ink); background: var(--accent); }
+.pet-zone.tts-mouth-open .character,
+.pet-zone.tts-mouth-open .custom-sprite { filter: brightness(1.08) drop-shadow(7px 8px rgba(0, 0, 0, .25)); }
 .settings-panel.open { display: flex; flex-direction: column; }
 .settings-panel section { min-height: 0; overflow-y: auto; padding-right: 3px; }
 .settings-panel .row > select { min-width: 0; flex: 1; }
