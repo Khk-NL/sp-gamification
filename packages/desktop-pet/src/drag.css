@@ -21,7 +21,7 @@
   transform: translateX(-50%) scaleX(-1);
 }
 
-.drag-grip { -webkit-app-region: no-drag; pointer-events: none; }
+.drag-grip { -webkit-app-region: no-drag; pointer-events: auto; }
 .bubble { font-family: "Arial Black", "Segoe UI", "Microsoft YaHei", sans-serif; font-size: 14px; font-weight: 900; }
 .settings-panel, .context-menu { font-family: "Arial Black", "Segoe UI", "Microsoft YaHei", sans-serif; font-weight: 900; }
 .settings-panel header small, .connection { font-family: "Arial Black", "Segoe UI", "Microsoft YaHei", sans-serif; font-size: 12px; font-weight: 900; }

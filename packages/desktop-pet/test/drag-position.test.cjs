@@ -23,3 +23,18 @@ test('连续拖动 50 次后原始工作区边界不缩小，并支持负坐标�
     position = index % 2 ? leftTop : rightBottom;
   }
 });
+
+test('透明窗口可越过屏幕边界，使可见角色恰好到达四边', () => {
+  const session = { windowX: 500, windowY: 200, windowWidth: 250, windowHeight: 300, pointerX: 625, pointerY: 350, visibleRect: { x: 50, y: 100, width: 150, height: 170 } };
+  const display = { x: -1920, y: -40, width: 1920, height: 1080 };
+  for (let index = 0; index < 50; index += 1) {
+    const leftTop = calculateDragPosition(session, { x: -9999, y: -9999 }, display);
+    const rightBottom = calculateDragPosition(session, { x: 9999, y: 9999 }, display);
+    assert.deepEqual(leftTop, { x: -1970, y: -140 });
+    assert.deepEqual(rightBottom, { x: -200, y: 770 });
+    session.windowX = index % 2 ? leftTop.x : rightBottom.x;
+    session.windowY = index % 2 ? leftTop.y : rightBottom.y;
+    session.pointerX = session.windowX + 125;
+    session.pointerY = session.windowY + 150;
+  }
+});

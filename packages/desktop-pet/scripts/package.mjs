@@ -27,7 +27,7 @@ try {
     ignore: [/^\/node_modules(?:\/|$)/, /^\/release(?:\/|$)/],
   });
 
-  const zipPath = path.join(release, 'SPPet-v0.14.0-win-x64.zip');
+  const zipPath = path.join(release, 'SPPet-v0.14.1-win-x64.zip');
   await new Promise((resolve, reject) => {
     const output = createWriteStream(zipPath);
     const archive = archiver('zip', { zlib: { level: 9 } });

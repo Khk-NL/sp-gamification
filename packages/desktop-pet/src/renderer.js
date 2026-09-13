@@ -1,5 +1,6 @@
 const bubble = document.getElementById('bubble');
 const petZone = document.getElementById('pet-zone');
+const dragGrip = document.querySelector('.drag-grip');
 const pet = document.getElementById('pet');
 const customSprite = document.getElementById('custom-sprite');
 const characterElement = document.getElementById('character');
@@ -108,14 +109,18 @@ const setDragVisual = (dragging, direction = null) => {
   frame = 0;
   if (activeCharacter) setCharacterState(dragging ? 'drag' : 'idle');
 };
-petZone.addEventListener('pointerdown', (event) => {
+const visiblePetRect = () => {
+  const rect = (activeCharacter ? characterElement : petZone.classList.contains('custom') ? customSprite : pet).getBoundingClientRect();
+  return { x: rect.left, y: rect.top, width: rect.width, height: rect.height };
+};
+const beginPointerGesture = (event) => {
   if (event.button !== 0 || anyPanelOpen()) return;
   setMouseInteractive(true);
-  petZone.setPointerCapture?.(event.pointerId);
-  dragGesture = { pointerId: event.pointerId, startX: event.screenX, startY: event.screenY, lastX: event.screenX, moved: false };
+  event.currentTarget.setPointerCapture?.(event.pointerId);
+  dragGesture = { target: event.currentTarget, pointerId: event.pointerId, startX: event.screenX, startY: event.screenY, lastX: event.screenX, moved: false };
   lastGestureDragged = false;
-});
-petZone.addEventListener('pointermove', (event) => {
+};
+const movePointerGesture = (event) => {
   if (!dragGesture || dragGesture.pointerId !== event.pointerId) return;
   const dx = event.screenX - dragGesture.startX, dy = event.screenY - dragGesture.startY;
   if (!dragGesture.moved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
@@ -124,28 +129,32 @@ petZone.addEventListener('pointermove', (event) => {
     dragGesture.moved = true;
     lastGestureDragged = true;
     clearTimeout(messageTimer); bubble.classList.remove('show'); showingMessage = false; react(false);
-    window.petApi.dragStart();
+    window.petApi.dragStart(visiblePetRect());
     setDragVisual(true);
   }
   const direction = event.screenX < dragGesture.lastX ? 'left' : event.screenX > dragGesture.lastX ? 'right' : null;
   if (direction) setDragVisual(true, direction);
   dragGesture.lastX = event.screenX;
   window.petApi.dragMove();
-});
+};
 const finishPointerGesture = (event, cancelled = false) => {
   if (!dragGesture || dragGesture.pointerId !== event.pointerId) return;
-  const moved = dragGesture.moved;
+  const { moved, target } = dragGesture;
   dragGesture = null;
-  if (petZone.hasPointerCapture?.(event.pointerId)) petZone.releasePointerCapture(event.pointerId);
+  if (target.hasPointerCapture?.(event.pointerId)) target.releasePointerCapture(event.pointerId);
   if (moved) window.petApi.dragEnd();
   setDragVisual(false);
   lastInteraction = Date.now();
-  if (!moved && !cancelled) { window.petApi.touched(); setCharacterState('touch', 1200); showBubble(randomLine(clickLines, '收到！')); }
-  setTimeout(() => { if (!petZone.matches(':hover') && !contextMenu.classList.contains('open') && !anyPanelOpen()) setMouseInteractive(false); }, 0);
+  if (!moved && !cancelled && target === petZone) { window.petApi.touched(); setCharacterState('touch', 1200); showBubble(randomLine(clickLines, '收到！')); }
+  setTimeout(() => { if (!petZone.matches(':hover') && !dragGrip.matches(':hover') && !contextMenu.classList.contains('open') && !anyPanelOpen()) setMouseInteractive(false); }, 0);
 };
-petZone.addEventListener('pointerup', (event) => finishPointerGesture(event));
-petZone.addEventListener('pointercancel', (event) => finishPointerGesture(event, true));
-petZone.addEventListener('lostpointercapture', (event) => finishPointerGesture(event, true));
+for (const handle of [petZone, dragGrip]) {
+  handle.addEventListener('pointerdown', beginPointerGesture);
+  handle.addEventListener('pointermove', movePointerGesture);
+  handle.addEventListener('pointerup', (event) => finishPointerGesture(event));
+  handle.addEventListener('pointercancel', (event) => finishPointerGesture(event, true));
+  handle.addEventListener('lostpointercapture', (event) => finishPointerGesture(event, true));
+}
 window.addEventListener('pointerup', (event) => finishPointerGesture(event), true);
 window.addEventListener('pointercancel', (event) => finishPointerGesture(event, true), true);
 petZone.addEventListener('dblclick', (event) => { if (event.button !== 0 || lastGestureDragged) return; event.preventDefault(); openChatPanel(); });
